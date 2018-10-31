@@ -1,5 +1,5 @@
-<h2><b>Install Python at https://www.python.org/downloads/release/python-371/</b></h2><br>
-<h2><b>Compatible with Shovel Knight PC version</b></h2>
+<h4><b>Install Python at https://www.python.org/downloads/release/python-371/</b></h4><br>
+<h4><b>Compatible with Shovel Knight PC version</b></h4>
 
 *Make sure to make copies of your files!
 
