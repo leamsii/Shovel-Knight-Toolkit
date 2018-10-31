@@ -178,7 +178,9 @@ def extract():
 		wflz_offset = file_data.find(b'WFLZ')
 		wflz_name = 'frame_' + str(i) + '.wflz'
 
-		data_size = file_data[wflz_offset - 4: wflz_offset]
+		data_size = file_data[wflz_offset + 4: wflz_offset + 8]
+		data_size = unpack('<I', data_size)[0]
+		data_size += 0x10
 		image_width = file_data[wflz_offset - 0x20: (wflz_offset - 0x20) + 4]
 		image_height = file_data[wflz_offset - 0x1c: (wflz_offset - 0x1c) + 4]
 		compressed_size = file_data[wflz_offset + 4: wflz_offset + 8]
@@ -190,7 +192,7 @@ def extract():
 			}
 
 		with open(wflz_name, 'wb') as wflz_file:
-			wflz_file.write(file_data[wflz_offset : wflz_offset + unpack('<I', data_size)[0]])
+			wflz_file.write(file_data[wflz_offset : wflz_offset + data_size])
 
 		#Remove extracted chunk from the current data
 		file_data = file_data[wflz_offset + 1:]
