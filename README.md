@@ -16,4 +16,4 @@
 </section>
 
 <h2>Happy Modding!</h2>
-<img src = "http://yachtclubgames.com/wp-content/uploads/2015/02/plagueKnight0031.png">
+<img src = "http://yachtclubgames.com/wp-content/uploads/2015/02/plagueKnight0031.png" width = "64" height = "64">
