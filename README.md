@@ -14,3 +14,6 @@
 <p>To repack the extracted images simply drag/drop the folder where the images are located onto anb_packer.py</p>
 <p>Make sure the meta.json file is in there too.</p>
 </section>
+
+<h2>Happy Modding!</h2>
+<img src = "http://yachtclubgames.com/wp-content/uploads/2015/02/plagueKnight0031.png">
