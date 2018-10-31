@@ -42,7 +42,6 @@ def get_pixels(png_images):
 		file_name = os.path.basename(image)
 		file_name = file_name[:file_name.find('.')]
 
-		sorted_pixels = []
 		with open(file_name + '.dat', 'wb') as file:
 			for arr in pixels:
 				for tup in arr:
@@ -53,9 +52,8 @@ def get_pixels(png_images):
 					b = pack('<B', b) #endianess doesn't matter
 					a = pack('<B', a) #endianess doesn't matter
 
-					sorted_pixels.append(r + g + b + a)
-			for pixel in sorted_pixels:
-				file.write(pixel)
+					file.write(r + g + b + a)
+				
 
 def set_json(directory):
 	with open(directory + '\\meta.json', 'r') as file:
@@ -80,6 +78,7 @@ def convert_to_image(data_files):
 			image_name = frame_name + '.png'
 			image_width = JSON_DATA[frame_name]['width']
 			image_height = JSON_DATA[frame_name]['height']
+			
 			try:
 				image_out = Image.frombuffer('RGBA', (image_width, image_height), file.read(), 'raw', 
 					'RGBA', 0, 1)
