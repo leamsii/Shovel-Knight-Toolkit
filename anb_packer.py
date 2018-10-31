@@ -1,10 +1,12 @@
-from PIL import Image
 from struct import pack, unpack
 import os
 import sys
 import glob
 import json
 import time
+
+sys.path.insert(0, os.path.dirname(sys.argv[0]) + '\\include')
+from PIL import Image
 
 #Made by Liam :)
 
