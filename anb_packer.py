@@ -6,12 +6,17 @@ import json
 import time
 
 sys.path.insert(0, os.path.dirname(sys.argv[0]) + '\\include')
-from PIL import Image
+try:
+	from PIL import Image
+except:
+	try:
+		import Image
+	except:
+		print("Error: Something wen't wrong with the pillow library. Try running 'pip install pillow'")
+		sys.exit(-1)
 
-#Made by Liam :)
 
-print("#Requires Python Version 3.0 or higher.")
-
+print("#Requires Python Version 3.4 or higher.")
 def get_pixels(png_images):
 	print("Log: Extracting raw pixels from images...")
 	for image in png_images:
@@ -103,7 +108,7 @@ def compress():
 		compressed_size = JSON_DATA[file_name]['compressed_size'] + 16
 
 		#Call WFLZ compressor.
-		os.system(HOME_DIRECTORY + "\\wflz_extractor\\extractor.exe " + f + ' ' + 
+		os.system(HOME_DIRECTORY + "\\include" + "\\wflz_extractor\\extractor.exe " + f + ' ' + 
 			str(compressed_size))
 
 	#Now we locate the owner of the frames and swap the wflz headers.
@@ -199,7 +204,7 @@ def extract():
 	print("Log: Decompressing frames...")
 	wflz_files = glob.glob('*.wflz')
 	for f in wflz_files:
-		os.system(HOME_DIRECTORY + "./wflz_extractor\\extractor.exe " + f)
+		os.system(HOME_DIRECTORY + "\\include" + "\\wflz_extractor\\extractor.exe " + f)
 
 	#Now convert the decompressed wfzl files to png images
 	convert_to_image(glob.glob('*.dat'))

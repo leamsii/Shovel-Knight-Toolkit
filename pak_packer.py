@@ -4,9 +4,7 @@ import sys
 import time
 import glob
 
-#Made by Liam :)
-
-print("#Requires Python Version 3.0 or higher.")
+print("#Requires Python Version 3.4 or higher.")
 def sort_files(files):
 	sorted_files = []
 	subfiles = []
