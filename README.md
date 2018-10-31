@@ -1,6 +1,5 @@
 *Make sure to make copies of your files!
 
-**How to Use**
 ---The .pak Packer Tool---
 	
     To unpack a .pak file using pack_packer simply drag/drop the
