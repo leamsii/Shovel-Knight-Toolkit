@@ -1,3 +1,6 @@
+Install Python at https://www.python.org/downloads/release/python-364/
+Compatible with Shovel Knight PC version
+
 *Make sure to make copies of your files!
 
 ---The .pak Packer Tool---
