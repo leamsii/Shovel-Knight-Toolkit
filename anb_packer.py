@@ -5,19 +5,21 @@ import glob
 import json
 import time
 
+if sys.version_info < (3,4):
+	print("Error: Please update Python to version 3.4 or higher!")
+	print("Exiting in 5 seconds...")
+	time.sleep(5)
+	sys.exit(-1)
+
 try:
 	from PIL import Image
 except:
-	try:
-		import Image
-	except:
-		print("Error: Couldn't find the pillow library! Try running 'pip install pillow'")
-		print("Exiting in 5 seconds...")
-		time.sleep(5)
-		sys.exit(-1)
+	print("Error: Couldn't find the pillow library! Try running 'pip install pillow'")
+	print("Exiting in 5 seconds...")
+	time.sleep(5)
+	sys.exit(-1)
+		
 
-
-print("#Requires Python Version 3.4 or higher.")
 def get_pixels(png_images):
 	print("Log: Extracting raw pixels from images...")
 	for image in png_images:
