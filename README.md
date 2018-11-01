@@ -1,4 +1,5 @@
 <h4><b>Install Python at https://www.python.org/downloads/release/python-371/</b></h4>
+<h4><b>Install Pillow Library at https://pypi.org/project/Pillow/ </b></h4>
 <h4><b>Compatible with Shovel Knight PC versions only</b></h4>
 
 *Make sure to make copies of your files!
