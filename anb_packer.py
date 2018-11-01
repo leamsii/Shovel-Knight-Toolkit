@@ -5,14 +5,15 @@ import glob
 import json
 import time
 
-sys.path.insert(0, os.path.dirname(sys.argv[0]) + '\\include')
 try:
 	from PIL import Image
 except:
 	try:
 		import Image
 	except:
-		print("Error: Something wen't wrong with the pillow library. Try running 'pip install pillow'")
+		print("Error: Couldn't find the pillow library! Try running 'pip install pillow'")
+		print("Exiting in 5 seconds...")
+		time.sleep(5)
 		sys.exit(-1)
 
 
@@ -241,8 +242,9 @@ JSON_DATA = None
 
 #Everthing went well start program
 if os.path.isdir(TARGET_FILE):
-	if not os.path.isfile(TARGET_FILE + 'meta.json'):
-		log("Error: Could not find the generated meta.json file in " + TARGET_FILE)
+	JSON_PATH = TARGET_FILE + '\\meta.json'
+	if not os.path.isfile(JSON_PATH):
+		log("Error: Could not find the generated meta.json file in " + JSON_PATH)
 
 	set_json(TARGET_FILE)
 	compress()
