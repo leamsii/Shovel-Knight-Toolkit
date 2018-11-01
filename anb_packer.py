@@ -241,7 +241,7 @@ JSON_DATA = None
 
 #Everthing went well start program
 if os.path.isdir(TARGET_FILE):
-	if not os.path.isfile(TARGET_FILE + './meta.json'):
+	if not os.path.isfile(TARGET_FILE + 'meta.json'):
 		log("Error: Could not find the generated meta.json file in " + TARGET_FILE)
 
 	set_json(TARGET_FILE)
