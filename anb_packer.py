@@ -203,7 +203,7 @@ def extract():
 	with open('meta.json', 'w') as meta_file:
 		json.dump(meta_data, meta_file)
 
-	set_json(DESTINATON_FOLDER)
+	set_json(os.getcwd())
 			
 	print("Log: Decompressing frames...")
 	wflz_files = glob.glob('*.wflz')
