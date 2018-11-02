@@ -87,7 +87,7 @@ def convert_to_image(data_files):
 					'RGBA', 0, 1)
 				image_out.save(image_name)
 			except:
-				log("Error: Something wen't wrong when converting to image {} {} {}".format(image_name,
+				log("Error: Something wen't wrong when converting the image {} {} {}".format(image_name,
 					image_width, image_height))
 
 def compress():
@@ -149,7 +149,9 @@ def compress():
 	tmp += anb_data
 
 	name = os.path.basename(anb_file)
-	with open('modded_' + name,'wb') as file:
+	if os.path.isfile(name):
+		name += 'modded_'
+	with open(name,'wb') as file:
 		file.write(tmp)
 
 	clean_files()
@@ -204,7 +206,6 @@ def extract():
 		json.dump(meta_data, meta_file)
 
 	set_json(os.getcwd())
-			
 	print("Log: Decompressing frames...")
 	wflz_files = glob.glob('*.wflz')
 	for f in wflz_files:
@@ -231,10 +232,12 @@ def log(msg):
 
 #Validate user input
 if len(sys.argv) != 2:
-	log("Error: Please specify a target .anb file or a .dat file")
+	log("Error: Please specify a target .anb file or a target folder!")
 
 #Define global variables
 HOME_DIRECTORY = os.path.dirname(sys.argv[0])
+if not os.path.isdir(HOME_DIRECTORY):
+	HOME_DIRECTORY = sys.path[0]
 TARGET_FILE = sys.argv[1]
 TARGET_NAME = os.path.basename(TARGET_FILE)[:os.path.basename(TARGET_FILE).find('.')]
 TARGET_FORMAT = TARGET_FILE[TARGET_FILE.find('.'):]

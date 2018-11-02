@@ -21,12 +21,11 @@ def sort_files(files):
 			metadata = file.read()
 			metadata_offset = metadata.find(b'LIAM')
 			if metadata_offset == -1:
-				print("Warning: The META header in {} was not found!".format(f))
-				return subfiles
-
-			metadata = metadata[metadata_offset + 4 : ]
-			order_id = struct.unpack('<I', metadata[0x20 : ])[0]
-			sorted_files.append((order_id, f))
+				print("Warning: The META header in {} was not found, skipping...".format(f))
+			else:
+				metadata = metadata[metadata_offset + 4 : ]
+				order_id = struct.unpack('<I', metadata[0x20 : ])[0]
+				sorted_files.append((order_id, f))
 
 	sorted_files.sort()
 	subfiles = []
