@@ -18,7 +18,38 @@ except:
 	print("Exiting in 5 seconds...")
 	time.sleep(5)
 	sys.exit(-1)
-		
+
+def overwright(target):
+	with open(target, 'rb') as file:
+		data = file.read()
+
+	copy_data = b''
+	for _ in range(data.count(b'WFLZ')):
+
+		wflz_offset = data.find(b'WFLZ')
+		if wflz_offset != -1:
+			chunk_size = data[wflz_offset - 4: wflz_offset]
+			chunk_size = unpack('<I', chunk_size)[0]
+
+			#Get image width and height
+			image_width = unpack('<I', data[wflz_offset - 0x20: (wflz_offset - 0x20) + 4])[0]
+			image_height = unpack('<I', data[wflz_offset - 0x1c: (wflz_offset - 0x1c) + 4])[0]
+
+			#Get bounding box rect
+			bounds_offset = len(data[:wflz_offset]) + chunk_size
+			prev = bounds_offset
+			bounds_offset += data[bounds_offset:].find(b'\xFF\xFF\xFF') + 0x10
+			prev -= (prev - bounds_offset)
+
+			#Split data
+			copy_data += data[ : prev]
+			data = data[prev + 0x8 :]
+			copy_data += bytes(4) + pack('<H', image_width) + pack('<H', image_height)
+	copy_data += data
+
+	#Now make the clone
+	with open(target, 'wb') as file:
+		file.write(copy_data)	
 
 def get_pixels(png_images):
 	print("Log: Extracting raw pixels from images...")
@@ -150,10 +181,11 @@ def compress():
 
 	name = os.path.basename(anb_file)
 	if os.path.isfile(name):
-		name += 'modded_'
+		name = 'modded_' + name
 	with open(name,'wb') as file:
 		file.write(tmp)
 
+	overwright(name) #Overwright the bounding box values
 	clean_files()
 	log("Log: Finished, check inside " + TARGET_FILE)
 
