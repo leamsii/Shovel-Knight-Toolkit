@@ -4,15 +4,16 @@ import sys
 import time
 import glob
 
-print("#Requires Python Version 3.4 or higher.")
-def sort_files(files):
-	sorted_files = []
-	subfiles = []
+if sys.version_info < (3,4):
+	print("Error: Please update Python to version 3.4 or higher!")
+	print("Exiting in 5 seconds...")
+	time.sleep(5)
+	sys.exit(-1)
 
+def sort_files(files):
 	#Remove directories
-	for f in files:
-		if os.path.isdir(f) == False:
-			subfiles.append(f)
+	subfiles = [f for f in files if not os.path.isdir(f)]
+	sorted_files = []
 
 	#Sort by order id
 	for f in subfiles:
@@ -31,7 +32,6 @@ def sort_files(files):
 	subfiles = []
 	for k,v in enumerate(sorted_files):
 		subfiles.append(v[1])
-
 	return subfiles
 
 
