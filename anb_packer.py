@@ -168,7 +168,8 @@ def compress():
 			wflz_data.append(file.read())
 
 	#Now replace the wflz chunks with the edited ones
-	tmp = b''
+	tmp = anb_data[ : 0x44] + b'\xFF\xFF\xFF\xFF' #enable coloring
+	anb_data = anb_data[0x48:]
 	for data in wflz_data:
 		wflz_offset = anb_data.find(b'WFLZ')
 		if wflz_offset == -1:
@@ -185,7 +186,7 @@ def compress():
 	with open(name,'wb') as file:
 		file.write(tmp)
 
-	overwright(name) #Overwright the bounding box values
+	#overwright(name) #Overwright the bounding box values
 	clean_files()
 	log("Log: Finished, check inside " + TARGET_FILE)
 

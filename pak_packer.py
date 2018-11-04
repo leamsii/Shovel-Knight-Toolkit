@@ -1,180 +1,169 @@
-import struct
 import os
 import sys
-import time
-import glob
-
-if sys.version_info < (3,4):
-	print("Error: Please update Python to version 3.4 or higher!")
-	print("Exiting in 5 seconds...")
-	time.sleep(5)
-	sys.exit(-1)
-
-def sort_files(files):
-	#Remove directories
-	subfiles = [f for f in files if not os.path.isdir(f)]
-	sorted_files = []
-
-	#Sort by order id
-	for f in subfiles:
-		with open(f, 'rb') as file:
-			metadata = file.read()
-			metadata_offset = metadata.find(b'LIAM')
-			if metadata_offset == -1:
-				print("Warning: The META header in {} was not found, skipping...".format(f))
-			else:
-				metadata = metadata[metadata_offset + 4 : ]
-				order_id = struct.unpack('<I', metadata[0x20 : ])[0]
-				sorted_files.append((order_id, f))
-
-	sorted_files.sort()
-	subfiles = []
-	for k,v in enumerate(sorted_files):
-		subfiles.append(v[1])
-	return subfiles
-
-
-def create_name_chunk(names):
-	data = b''
-	for name in names:
-		name = name.replace('\\', '/')
-		data += name.encode() + bytes(2)
-	return data
-
-def get_names(file, offset):
-	file.seek(offset)
-	names = [v for v in file.read().split(b'\x00') if v]
-	return names
+import struct
+from time import sleep
+from glob import glob
+from zlib import crc32
 
 def log(msg):
 	print(msg)
 	print("Exiting in 5 seconds...")
-	time.sleep(5)
+	sleep(5)
 	sys.exit(-1)
 
-def pack(folder):
-	os.chdir(folder)
-	files = glob.glob('**', recursive=True)
-	if len(files) <= 0:
-		log("Error: No files were found in " + folder)
+if sys.version_info < (3 , 4):
+	log("Error: Please update Python to version 3.4 or higher!")
 
+def get_extension(filename):
+	extension_offset = filename.find('.')
+	if extension_offset == -1:
+		log("Error: {} has no extension!".format(filename))
+	return filename[extension_offset:]
+
+def create_metafile(directory, names, sub_data, pak_data, pak_name):
+	#Name then checksum then at the end the pak data
+	with open(directory + '\\meta.dat', 'wb') as file:
+		file.write(struct.pack('<H', len(names)))
+		for k, v in enumerate(names):
+			file.write(struct.pack('<H', len(v)) + v)
+
+			#Generate the checksum
+			file.write(struct.pack('<I', crc32(sub_data[k])))
+
+			#include original data
+			file.write(struct.pack('<I', len(sub_data[k])))
+			file.write(sub_data[k])
+
+		#Write the original .pak data
+		file.write(struct.pack('<H', len(pak_name)))
+		file.write(pak_name.encode('utf-8'))
+		file.write(pak_data)
+
+def pack(f):
+	os.chdir(f)
+	if not os.path.isfile('meta.dat'):
+		log("Error: Could not find the meta.dat file in " + f)
+
+	_pack = struct.pack
+	_unpack = struct.unpack
+
+	#Collect file information
+	file_names = {}
+	pak_data = b''
+	pak_name = b''
+	with open('meta.dat', 'rb') as file:
+		num_files = _unpack('<H', file.read(2))[0]
+		for _ in range(num_files):
+			name_size = _unpack('<H', file.read(2))[0]
+			name = file.read(name_size).decode('utf-8')
+			checksum = _unpack('<I', file.read(4))[0]
+
+			data_size = _unpack('<I', file.read(4))[0]
+			data = file.read(data_size)
+
+			file_names[name] = {'checksum' : checksum, 'data' : data}
+
+		pak_name_size = _unpack('<H', file.read(2))[0]
+		pak_name = file.read(pak_name_size).decode('utf-8')
+		pak_data = file.read()
+
+	#Locate any edited files or missing files
+	changed_files = {}
+	missing_files = []
+	for k, name in enumerate(file_names):
+		checksum = file_names[name]['checksum']
+		try:
+			with open(name, 'rb') as file:
+				if crc32(file.read()) != checksum: #We found an edited file lets swap the values
+					file.seek(0)
+					changed_files[name] = {'changed_data' : file.read(), 
+					'original_data' : file_names[name]['data']}
+		except:
+			missing_files.append(name)
+
+	if len(missing_files) != 0:
+		print("Error: Missing required files...")
+		for file in missing_files:
+			print("Missing: " + file)
+		log("")
+
+	#Now swap any edited files
 	print("Log: Repacking files...")
+	for k, file in enumerate(changed_files):
+		pak_data = pak_data.replace(changed_files[file]['original_data'], changed_files[file]['changed_data'])
 
-	subfiles = sort_files(files)
-	file_datas = []
-	file_size = 0
+	with open(pak_name, 'wb') as file:
+		file.write(pak_data)
 
-	#Seperate the files and get raw data
-	print("Log: Collecting raw data...")
-	for f in subfiles:
-		with open(f, 'rb') as file:
-			v = file.read()
-			file_datas.append(v)
-			file_size += len(v) - 8 # -8 is for the metadata header and order id
+	log("Log: Finished, check inside " + f)
 
-	print("Log: Writing header...")
-	#Files collected now begin writing header
-	data = bytes(4) #First empty 4 bytes
-	data += struct.pack('<I', len(subfiles)) #number of files
-	data += struct.pack('<I', 0x18) #data offset
-	data += bytes(4) #padding
-	name_offset = struct.pack('<I', 0x18 + (8 * len(subfiles))  + file_size)
-	data += bytes(name_offset)
-	data += bytes(4) #padding
-
-	print("Log: Writing offsets...")
-	#Begin adding the data offsets
-	max_length = 0x20 + (8 * (len(subfiles) - 1))
-	last_length = 0
-	for k,v in enumerate(file_datas):
-		offset = max_length + last_length
-		data += struct.pack('<I', offset) + bytes(4)
-		last_length += (len(v) - 8)
-
-
-	print("Log: Writing raw data...")
-	#Add raw data
-	for k,v in enumerate(file_datas):
-		metadata_offset = v.find(b'LIAM')
-		if metadata_offset != -1:
-			metadata = v[metadata_offset + 4 : (metadata_offset + 4) + 0x20] #Thus removing the order id
-			v = v[ : metadata_offset]
-			data += metadata + v
-		else:
-			data += v
-
-	print("Log: Writing name offsets...")
-	#Writes names
-	max_length = 8 * len(subfiles)
-	start_offset = len(data) + max_length
-	last_length = 0
-	for k,v in enumerate(subfiles):
-		v = v.replace('\\', '/')
-		start_offset += last_length
-		data += struct.pack('<I', start_offset) + bytes(4)
-		last_length = len(v) + 2 # +2 for the padding
-
-	names = create_name_chunk(subfiles)
-	data += names
-
-	with open(os.path.basename(folder) + '.pak', 'wb') as file:
-		file.write(data)
-
-	print("Log: Finished, check inside " + folder)
 
 
 def unpack(f):
+	if os.stat(f).st_size <= 50:
+		log("Error: The PAK file is too small " + f)
+
+	_pack = struct.pack
+	_unpack = struct.unpack
+
 	#Get header values
 	with open(f, 'rb') as file:
-		if len(file.read()) <= 50:
-			log("Error: The PAK file is too small " + f)
+		fseek = file.seek
+		fread = file.read
 
-		file.seek(4)
-		num_files = struct.unpack('<I', file.read(4))[0]
-		data_offset = struct.unpack('<I', file.read(4))[0]
-		file.seek(0x10)
-		name_offset = struct.unpack('<I', file.read(4))[0]
-		file.seek(name_offset)
-		name_offset = struct.unpack('<I', file.read(4))[0]
-		names = get_names(file, name_offset)
+		pak_data = fread() #Used for repacking
+		fseek(0)
+
+		fseek(4)
+		num_files = _unpack('<I', fread(4))[0]
+		data_offset = _unpack('<I', fread(4))[0]
+		fseek(0x10)
+		name_offset = _unpack('<I', fread(4))[0]
+		fseek(name_offset)
+		name_offset = _unpack('<I', fread(4))[0]
+		fseek(name_offset)
+		names = [v for v in fread().split(b'\x00') if v]
 
 		#Get data offsets
 		data_offsets = []
-		data_sets = []
-		file.seek(data_offset)
-		for i in range(num_files):
-			data_offsets.append(struct.unpack('<I', file.read(4))[0] + 0x20)
-			file.read(4) #Skip 4
+		fseek(data_offset)
+		for _ in range(num_files):
+			data_offsets.append(_unpack('<I', fread(4))[0] + 0x20)
+			fread(4) #Skip 4 bytes
 
-		#Get data chunk and metadata for repacking.
+		data_sets = []
+		#Get data chunks 
 		for k, offset in enumerate(data_offsets):
-			file.seek(offset - 0x20)
-			metadata = b'LIAM' + file.read(0x20) + struct.pack('<I', k)
-			file.seek(offset - 0x20)
-			data_size = struct.unpack('<I', file.read(4))[0]
-			file.seek(offset)
-			data = file.read(data_size)
-			data_sets.append(data + metadata)
+			fseek(offset - 0x20)
+			data_size = _unpack('<I', fread(4))[0]
+			fseek(offset)
+			data = fread(data_size)
+			data_sets.append(data)
 
 		if len(data_sets) != num_files or len(names) != num_files:
-			log("Error: Some values did not match: Files: {}, Data Sets: {}, Names: {}".format(num_files, len(data_sets), len(names)))
+			log("Error: Some values did not match: Files: {}, Data Sets: {}, Names: {}".format(num_files, 
+				len(data_sets), len(names)))
+
+		#We have the required values now create the metafile for repacking
+		os.chdir(os.path.dirname(f))
+		print("Log: Extracting {} files...".format(num_files))
 
 		pak_file = os.path.basename(f)
 		pak_file = pak_file[:pak_file.find('.')]
-		os.chdir(os.path.dirname(f))
 		os.system('mkdir ' + pak_file)
+
+		create_metafile(pak_file, names, data_sets, pak_data, os.path.basename(f))
 
 		for k, name in enumerate(names):
 			directory = os.path.dirname(name.decode()).replace('/', '\\')
 			file_name = os.path.basename(name.decode())
 			path = pak_file + '\\' + directory
-
-			print("Log: Extracting {} to {}".format(file_name, path))
-			if os.path.isdir(path) == False:
+			if not os.path.isdir(path):
 				os.system('mkdir ' + path)
 
 			with open(path + '\\' + file_name, 'wb') as file:
 				file.write(data_sets[k])
+
 
 args = sys.argv
 if len(args) != 2:
@@ -185,11 +174,13 @@ if len(args) != 2:
 
 target = args[1]
 if os.path.isfile(target):
+	if get_extension(target) != '.pak':
+		log("Error: This is not a valid .pak file!")
+
 	unpack(target)
 elif os.path.isdir(target):
 	pack(target)
 else:
 	log("Error: File or folder was not found " + target)
 
-print("Log: Program finished.")
-log("")
+log("Log: Program finished.")
