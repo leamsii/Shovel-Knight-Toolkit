@@ -18,7 +18,6 @@ try:
 except:
 	log("Error: Couldn't find the pillow library! Try running 'pip install pillow'")
 
-
 anb_header = {
 'offsets': {
 	'magic' : 		{'offset' : 0 , 'size' : 4},
@@ -281,6 +280,7 @@ try:
 		pack(target_file)
 
 except Exception as e:
+	print("Error: Encountered an unknown error! Shutting down...")
 	clean_files()
 	log(e)
 
