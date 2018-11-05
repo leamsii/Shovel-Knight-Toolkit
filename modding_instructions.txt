@@ -21,6 +21,12 @@ Do not resize the images.
 Do not rename the images.
 Images must be in RGBA PNG format.
 You don't need to edit all the images, the tools will simply repack the unedited images along with yours.
-The meta.json is used for repacking information, make sure is always with the images.
+The meta.dat file contains repacking information, make sure is always with the images.
+
+**Tips**
+The .pak packer tool skips any extra files it finds in the folder and keeps track of what files must be present when repacking.
+It also only changes the files you edit, thus saving time when repacking.
+
+The .anb tool works the same way.
 	
 	
