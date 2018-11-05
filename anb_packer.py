@@ -1,261 +1,9 @@
-from struct import pack, unpack
 import os
 import sys
 import glob
-import json
 import time
-
-if sys.version_info < (3,4):
-	print("Error: Please update Python to version 3.4 or higher!")
-	print("Exiting in 5 seconds...")
-	time.sleep(5)
-	sys.exit(-1)
-
-try:
-	from PIL import Image
-except:
-	print("Error: Couldn't find the pillow library! Try running 'pip install pillow'")
-	print("Exiting in 5 seconds...")
-	time.sleep(5)
-	sys.exit(-1)
-
-def overwright(target):
-	with open(target, 'rb') as file:
-		data = file.read()
-
-	copy_data = b''
-	for _ in range(data.count(b'WFLZ')):
-
-		wflz_offset = data.find(b'WFLZ')
-		if wflz_offset != -1:
-			chunk_size = data[wflz_offset - 4: wflz_offset]
-			chunk_size = unpack('<I', chunk_size)[0]
-
-			#Get image width and height
-			image_width = unpack('<I', data[wflz_offset - 0x20: (wflz_offset - 0x20) + 4])[0]
-			image_height = unpack('<I', data[wflz_offset - 0x1c: (wflz_offset - 0x1c) + 4])[0]
-
-			#Get bounding box rect
-			bounds_offset = len(data[:wflz_offset]) + chunk_size
-			prev = bounds_offset
-			bounds_offset += data[bounds_offset:].find(b'\xFF\xFF\xFF') + 0x10
-			prev -= (prev - bounds_offset)
-
-			#Split data
-			copy_data += data[ : prev]
-			data = data[prev + 0x8 :]
-			copy_data += bytes(4) + pack('<H', image_width) + pack('<H', image_height)
-	copy_data += data
-
-	#Now make the clone
-	with open(target, 'wb') as file:
-		file.write(copy_data)	
-
-def get_pixels(png_images):
-	print("Log: Extracting raw pixels from images...")
-	for image in png_images:
-		frame_name = os.path.basename(image)
-		frame_name = frame_name[:frame_name.find('.')]
-
-		try:
-			target_width = JSON_DATA[frame_name]['width']
-			target_height = JSON_DATA[frame_name]['height']
-		except:
-			log("Error: Could not find the image properties in the meta.json file!\n Error: Did you rename these images?")
-
-		_image = Image.open(image)
-		pixels = list(_image.getdata())
-		width,height = _image.size
-
-		if (width, height) != (target_width, target_height):
-			log("Error: The image dimensions do not match! Expected: {}, Got: {}".format(
-				(target_width, target_height), (width, height)))
-
-		pixels = [pixels[i * width:(i + 1) * width] for i in range(height)]
-
-		file_name = os.path.basename(image)
-		file_name = file_name[:file_name.find('.')]
-
-		with open(file_name + '.dat', 'wb') as file:
-			for arr in pixels:
-				for tup in arr:
-					r,g,b,a = tup
-
-					r = pack('<B', r) #endianess doesn't matter
-					g = pack('<B', g) #endianess doesn't matter
-					b = pack('<B', b) #endianess doesn't matter
-					a = pack('<B', a) #endianess doesn't matter
-
-					file.write(r + g + b + a)
-				
-
-def set_json(directory):
-	with open(directory + '\\meta.json', 'r') as file:
-		global JSON_DATA
-		JSON_DATA = json.loads(file.read())
-
-def _sort(files):
-	arr = [_ for _ in range(len(files))]
-	for f in files:
-		_id = f[f.find('_')+1:]
-		_id = _id[:_id.find('.')]
-		
-		arr[int(_id)] = f
-	return arr
-
-def convert_to_image(data_files):
-	print("Log: Converting extracted frames to images...")
-
-	for f in data_files:
-		with open(f, 'rb') as file:
-			frame_name = f[:f.find('.')]
-			image_name = frame_name + '.png'
-			image_width = JSON_DATA[frame_name]['width']
-			image_height = JSON_DATA[frame_name]['height']
-			
-			try:
-				image_out = Image.frombuffer('RGBA', (image_width, image_height), file.read(), 'raw', 
-					'RGBA', 0, 1)
-				image_out.save(image_name)
-			except:
-				log("Error: Something wen't wrong when converting the image {} {} {}".format(image_name,
-					image_width, image_height))
-
-def compress():
-	os.chdir(TARGET_FILE)
-	print("Log: Compressing images...")
-
-	png_images = glob.glob('*.png')
-	if len(png_images) <= 0:
-		log("Error: Could not find any .PNG images inside " + TARGET_FILE)
-	if len(png_images) != len(JSON_DATA)-1:
-		log("Error: Invalid number of frames found! Expected: {}, Got: {}".format(len(JSON_DATA)-1,
-			len(png_images)))
-
-	#Create .dat files with the raw pixel data
-	get_pixels(png_images)
-	data_files = glob.glob('*.dat')
-	for f in data_files:
-		file_name = os.path.basename(f)
-		file_name = file_name[:f.find('.')]
-		compressed_size = JSON_DATA[file_name]['compressed_size'] + 16
-
-		#Call WFLZ compressor.
-		os.system(HOME_DIRECTORY + "\\include" + "\\wflz_extractor\\extractor.exe " + f + ' ' + 
-			str(compressed_size))
-
-	#Now we locate the owner of the frames and swap the wflz headers.
-	print("Log: Locating the owner .ANB file...")
-	anb_file = JSON_DATA['owner']
-	if not os.path.isfile(anb_file):
-		print("Log: Could'nt find the owner .anb file for these frames...")
-		anb_location = input("Input: Would you mind telling me where its located: ").strip().replace('"', '')
-		if not os.path.isfile(anb_location):
-			clean_files()
-			log("Error: Could not find the anb file in {} or in {}".format(JSON_DATA['owner'],
-				anb_location))
-
-		anb_file = anb_location
-
-	with open(anb_file, 'rb') as file:
-		anb_data = file.read()
-
-	wflz_files = glob.glob('*.wflz')
-	wflz_files = _sort(wflz_files)
-	wflz_data = []
-	for f in wflz_files:
-		with open(f, 'rb') as file:
-			wflz_data.append(file.read())
-
-	#Now replace the wflz chunks with the edited ones
-	tmp = anb_data[ : 0x44] + b'\xFF\xFF\xFF\xFF' #enable coloring
-	anb_data = anb_data[0x48:]
-	for data in wflz_data:
-		wflz_offset = anb_data.find(b'WFLZ')
-		if wflz_offset == -1:
-			continue
-		padding = anb_data[:wflz_offset]
-		tmp += padding
-		tmp += data
-		anb_data = anb_data[len(data) + len(padding):]
-	tmp += anb_data
-
-	name = os.path.basename(anb_file)
-	if os.path.isfile(name):
-		name = 'modded_' + name
-	with open(name,'wb') as file:
-		file.write(tmp)
-
-	#overwright(name) #Overwright the bounding box values
-	clean_files()
-	log("Log: Finished, check inside " + TARGET_FILE)
-
-
-def extract():
-	with open(TARGET_FILE, 'rb') as file:
-		if file.read(4) != b'YCSN':
-			log("Error: This is not a valid .anb file!")
-
-		file_data = file.read()
-
-	wflz_chunks = file_data.count(b'WFLZ')
-	if wflz_chunks <= 0:
-		log("Error: No embedded images were found in this file!")
-
-	print("Log: Creating a destination folder...")
-	if not os.path.isdir(DESTINATON_FOLDER):
-		os.system('mkdir ' + DESTINATON_FOLDER)
-	os.chdir(DESTINATON_FOLDER)
-
-	#Grab the whole data and split it for each wflz chunk
-	print("Log: Extracting {} frames...".format(wflz_chunks))
-	meta_data = {}
-	meta_data['owner'] = TARGET_FILE
-	for i in range(wflz_chunks):
-		wflz_offset = file_data.find(b'WFLZ')
-		wflz_name = 'frame_' + str(i) + '.wflz'
-
-		data_size = file_data[wflz_offset + 4: wflz_offset + 8]
-		data_size = unpack('<I', data_size)[0]
-		data_size += 0x10
-		image_width = file_data[wflz_offset - 0x20: (wflz_offset - 0x20) + 4]
-		image_height = file_data[wflz_offset - 0x1c: (wflz_offset - 0x1c) + 4]
-		compressed_size = file_data[wflz_offset + 4: wflz_offset + 8]
-
-		meta_data['frame_' + str(i)] = { 
-			'width' : unpack('<I', image_width)[0],
-			'height' : unpack('<I', image_height)[0], 
-			'compressed_size' : unpack('<I', compressed_size)[0]
-			}
-
-		with open(wflz_name, 'wb') as wflz_file:
-			wflz_file.write(file_data[wflz_offset : wflz_offset + data_size])
-
-		#Remove extracted chunk from the current data
-		file_data = file_data[wflz_offset + 1:]
-
-	#Create the meata.json file containing repacking information
-	with open('meta.json', 'w') as meta_file:
-		json.dump(meta_data, meta_file)
-
-	set_json(os.getcwd())
-	print("Log: Decompressing frames...")
-	wflz_files = glob.glob('*.wflz')
-	for f in wflz_files:
-		os.system(HOME_DIRECTORY + "\\include" + "\\wflz_extractor\\extractor.exe " + f)
-
-	#Now convert the decompressed wfzl files to png images
-	convert_to_image(glob.glob('*.dat'))
-	clean_files()
-	log("Log: Finished, check inside " + DESTINATON_FOLDER)
-
-def clean_files():
-	print("Log: Cleaning up...")
-	dat_files = glob.glob('*.dat')
-	wflz_files = glob.glob('*.wflz')
-	for file in zip(dat_files, wflz_files):
-		os.system("del " + file[0])
-		os.system("del " + file[1])
+import struct
+import zlib
 
 def log(msg):
 	print(msg)
@@ -263,32 +11,277 @@ def log(msg):
 	time.sleep(5)
 	sys.exit(-1)
 
-#Validate user input
+if sys.version_info < (3,4):
+	log("Error: Please update Python to version 3.4 or higher!")
+try:
+	from PIL import Image
+except:
+	log("Error: Couldn't find the pillow library! Try running 'pip install pillow'")
+
+
+anb_header = {
+'offsets': {
+	'magic' : 		{'offset' : 0 , 'size' : 4},
+	'animations' : 	{'offset' : 56, 'size' : 4},
+	'frames' : 		{'offset' : 60, 'size' : 4},
+	'rgb_mask' : 	{'offset' : 68, 'size' : 4}
+},
+'values': {
+	'magic' : 		None,
+	'animations' : 	None,
+	'frames' : 		None,
+	'rgb_mask' : 	None,
+	'raw_data' : 	None,
+	'wflz_chunks' :	None
+}
+		}
+
+def get_wflz_struct():
+	return {
+		'offsets': {
+			'magic' : 			{'offset' : 0, 'size' : 4, 'value' : None},
+			'compressed_size' : {'offset' : 4, 'size' : 4, 'value' : None},
+			'decompressed_size':{'offset' : 8, 'size' : 4, 'value' : None},
+			'image_width' : 	{'offset' : -0x20, 'size' : 4, 'value' : None},
+			'image_height' : 	{'offset' : -0x1C, 'size' : 4, 'value' : None},
+		},
+		'compressed_data' : None,
+		'decompressed_data' : None,
+		'checksum' : None,
+		'image_data' : None
+	}
+
+def clean_files():
+	print("Log: Cleaning up..")
+	dat_files = glob.glob('*.dat')
+	wflz_files = glob.glob('*.wflz')
+	for file in zip(dat_files, wflz_files):
+		os.system("del " + file[0])
+		os.system("del " + file[1])
+
+def create_images(wflz_headers):
+	print("Log: Creating images..")
+	for k, chunk in enumerate(wflz_headers):
+		decompressed_data = chunk['decompressed_data']
+		image_width = struct.unpack('<I', chunk['offsets']['image_width']['value'])[0]
+		image_height = struct.unpack('<I', chunk['offsets']['image_height']['value'])[0]
+		image_name = 'frame_' + str(k) + '.png'
+
+		try:
+			image_out = Image.frombuffer('RGBA', (image_width, image_height), decompressed_data, 'raw', 
+					'RGBA', 0, 1)
+			image_out.save(image_name)
+		except:
+				log("Error: Something wen't wrong when converting the image {} {} {}".format(image_name,
+					image_width, image_height))
+
+		#Now set the checksums using png value
+		with open(image_name, 'rb') as file:
+			chunk['checksum'] = zlib.crc32(file.read())
+
+
+def create_metafile(anb_data, checksums):
+	with open('meta.dat', 'wb') as file:
+		file.write(struct.pack('<I', len(checksums))) #The number of images for this anb file
+		for k, c in enumerate(checksums):
+			file.write(struct.pack('<I', c))
+		file.write(zlib.compress(anb_data))
+
+def set_pixels(image_name, compression_size):
+	new_checksum = 0
+	with open(image_name, 'rb') as file:
+		new_checksum = zlib.crc32(file.read())
+
+	_image = Image.open(image_name)
+	pixels = list(_image.getdata())
+	width, height = _image.size
+
+	pixels = [pixels[i * width:(i + 1) * width] for i in range(height)]
+
+	dat_name = image_name[:image_name.find('.')] + '.dat'
+	with open(dat_name, 'wb') as file:
+		for arr in pixels:
+			for tup in arr:
+				r,g,b,a = tup
+
+				r = struct.pack('<B', r) #endianess doesn't matter
+				g = struct.pack('<B', g)
+				b = struct.pack('<B', b)
+				a = struct.pack('<B', a)
+
+				file.write(r + g + b + a)
+
+	os.system(sys.path[0] + "\\include" + "\\wflz_extractor\\extractor.exe " + dat_name + ' ' + 
+		str(compression_size))
+
+	return new_checksum
+
+def get_wflz_headers(raw_data):
+	wflz_chunks = []
+	for i in range(raw_data.count(b'WFLZ')):
+		current_chunk = get_wflz_struct()
+		wflz_offset = raw_data.find(b'WFLZ')
+
+		#Now get values
+		chunk_offsets = current_chunk['offsets']
+		for k, v in enumerate(chunk_offsets):
+			offset = wflz_offset + chunk_offsets[v]['offset']
+			size = offset + chunk_offsets[v]['size']
+			chunk_offsets[v]['value'] = raw_data[offset : size]
+
+		#Set compressed data and the checksum
+		compressed_data = raw_data[wflz_offset : wflz_offset + struct.unpack('<I', 
+			chunk_offsets['compressed_size']['value'])[0] + 16]
+		current_chunk['compressed_data'] = compressed_data
+
+		wflz_chunks.append(current_chunk)
+		raw_data = raw_data[wflz_offset+1 : ]
+
+	return wflz_chunks
+
+def pack(f):
+	os.chdir(f)
+	if not os.path.isfile('meta.dat'):
+		log("Error: Could not find the meta file for these images in " + f)
+
+	#Get the original data sets
+	checksums = []
+	anb_data = b''
+
+	with open('meta.dat', 'rb') as file:
+		num_frames = struct.unpack('<I', file.read(4))[0]
+		for _ in range(num_frames):
+			checksums.append(struct.unpack('<I', file.read(4))[0])
+		anb_data = zlib.decompress(file.read())
+
+	#Collect the images
+	image_names = ['frame_' + str(v) + '.png' for v in range(len(checksums))]
+	
+	#Check for any missing images
+	missing_images = []
+	for name in image_names:
+		if not os.path.isfile(name):
+			missing_images.append(name)
+
+	if len(missing_images) != 0:
+		for image in missing_images:
+			print("Error: Missing file " + image)
+		log("")
+
+	print("Log: Repacking {} images..".format(len(image_names)))
+	compression_sizes = []
+	wflz_headers = get_wflz_headers(anb_data)
+	for k, chunk in enumerate(wflz_headers):
+		compression_sizes.append(chunk['offsets']['compressed_size']['value'])
+	
+	#Check what images were edited
+	edited_images = {}
+	for k, image_name in enumerate(image_names):
+		with open(image_name, 'rb') as file:
+			new_checksum = zlib.crc32(file.read())
+			old_checksum = checksums[k]
+
+			if new_checksum != old_checksum:
+				edited_images[image_name] = {'key' : k, 'size' : 
+					struct.unpack('<I', compression_sizes[k])[0] + 16}
+
+	#Get the raw pixels from the edited images only
+	if len(edited_images) > 0:
+		print("Log: Detected {} edited images..".format(len(edited_images)))
+		for k, v in enumerate(edited_images):
+			new_checksum = set_pixels(v, edited_images[v]['size'])
+
+			with open(v[:v.find('.')] + '.wflz', 'rb') as file:
+				key = edited_images[v]['key']
+				checksums[key] = new_checksum
+				anb_data = anb_data.replace(wflz_headers[key]['compressed_data'],
+					file.read())
+		
+		#Update the meta file
+		create_metafile(anb_data, checksums)
+		clean_files()
+
+	else:
+		print("Log: No changes in the images were found..")
+
+	#Done
+	with open(os.path.basename(f) + '.anb', 'wb') as file:
+		file.write(anb_data)
+	
+	log("Log: Finished, check inside " + f)
+
+def extract(f):
+	os.chdir(os.path.dirname(f))
+	with open(f, 'rb') as file:
+		#Set basic values
+		for k, v in enumerate(anb_header['offsets']):
+			offset = anb_header['offsets'][v]['offset']
+			size = anb_header['offsets'][v]['size']
+
+			file.seek(offset)
+			anb_header['values'][v] = file.read(size)
+
+		#print("Log: Animations: ", struct.unpack('<I', anb_header['values']['animations'])[0])
+		#print("Log: Total frames: ", struct.unpack('<I', anb_header['values']['frames'])[0])
+
+		#Set raw data
+		file.seek(0)
+		raw_data = file.read()
+		anb_header['values']['raw_data'] = raw_data
+		anb_header['values']['wflz_chunks'] = raw_data.count(b'WFLZ')
+
+		#Create wflz files for decompressing
+		wflz_headers = get_wflz_headers(raw_data)
+		wflz_filenames = ['frame_' + str(v)  + '.wflz' for v in range(raw_data.count(b'WFLZ'))]
+
+		#Make the directory for the images
+		destination_folder = f[:f.find('.')]
+		if not os.path.isdir(destination_folder):
+			os.mkdir(destination_folder)
+		os.chdir(destination_folder)
+
+		print("Log: Decompressing WFLZ chunks..")
+		#Now dump the extacted wflz chunks
+		for k, chunk in enumerate(wflz_headers):
+			compressed_data = chunk['compressed_data']
+			with open(wflz_filenames[k], 'wb') as file:
+				file.write(compressed_data)
+
+			#Decompress the created file
+			os.system(sys.path[0] + "\\include" + "\\wflz_extractor\\extractor.exe " + wflz_filenames[k])
+
+			#Now update the wflz chunk with the decompressed data
+			dat_name = wflz_filenames[k]
+			dat_name = dat_name[:dat_name.find('.')] + '.dat'
+			with open(dat_name, 'rb') as file:
+				chunk['decompressed_data'] = file.read()
+
+		#Done, clean up the files
+		clean_files()
+
+		#Now create images using the raw pixels from the decompressed data
+		create_images(wflz_headers)
+		create_metafile(raw_data, [c['checksum'] for c in wflz_headers])
+
+		log("Log: Finished, check inside " + destination_folder)
+
 if len(sys.argv) != 2:
-	log("Error: Please specify a target .anb file or a target folder!")
+	print("Info: ###Commands###")
+	print("Info: anb_packer.py target.anb, to unpack a file")
+	print("Info: anb_packer.py target_folder, to pack a folder")
+	log("")
 
-#Define global variables
-HOME_DIRECTORY = os.path.dirname(sys.argv[0])
-if not os.path.isdir(HOME_DIRECTORY):
-	HOME_DIRECTORY = sys.path[0]
-TARGET_FILE = sys.argv[1]
-TARGET_NAME = os.path.basename(TARGET_FILE)[:os.path.basename(TARGET_FILE).find('.')]
-TARGET_FORMAT = TARGET_FILE[TARGET_FILE.find('.'):]
-TARGET_DIRECTORY = os.path.dirname(TARGET_FILE)
-DESTINATON_FOLDER = os.path.dirname(TARGET_FILE) + '\\' + TARGET_NAME
-JSON_DATA = None
+#User input verified being script
+try:
+	target_file = sys.argv[1]
+	if os.path.isfile(target_file):
+		extract(target_file)
 
-#Everthing went well start program
-if os.path.isdir(TARGET_FILE):
-	JSON_PATH = TARGET_FILE + '\\meta.json'
-	if not os.path.isfile(JSON_PATH):
-		log("Error: Could not find the generated meta.json file in " + JSON_PATH)
+	if os.path.isdir(target_file):
+		pack(target_file)
 
-	set_json(TARGET_FILE)
-	compress()
-else:
-	if not os.path.isfile(TARGET_FILE):
-		log("Error: The target file '{}' was not found!".format(TARGET_FILE))
-	extract()
+except Exception as e:
+	clean_files()
+	log(e)
 
 log("Log: Program finished.")
