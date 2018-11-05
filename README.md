@@ -13,7 +13,6 @@
   <h5>The .anb Packer Tool</h5>
 <p>To unpack a .anb file simply drag/drop the .anb file onto anb_packer.py</p>
 <p>To repack the extracted images simply drag/drop the folder where the images are located onto anb_packer.py</p>
-<p>Make sure the meta.json file is in there too.</p>
 </section>
 
 <h2>Happy Modding!</h2>
