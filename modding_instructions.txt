@@ -3,24 +3,18 @@
 Step(1) Unpack the target .pak file
 Step(2) Unpack the target .anb file
 Step(3) Edit the extracted images
-Step(4) Repack the folder where the images are using ANB_PACKER
-Step(5) Replace the original .ANB with your modded.anb file make sure to remove the modded_ part so the names are the same
-Step(6) Repack the .pak generated folder using PAK_PACKER
-Step(7) Replace the original .pak file with your modded pak
+Step(4) Repack the folder where the edited images are using ANB_PACKER
+Step(5) Replace the original .ANB with your modded.anb file
+Step(6) Repack the folder using PAK_PACKER
+Step(7) Replace the original .pak file with your modded .pak
 Step(8) Profit.
 
 
 To unpack a .pak file using pack_packer simply drag/drop the .pak file onto pack_packer.py
-
 To repack the unpacked folder, simply drag/drop the generatd folder onto pack_packer.py
-The .anb Packer Tool
 
 To unpack a .anb file simply drag/drop the .anb file onto anb_packer.py
-
 To repack the extracted images simply drag/drop the folder where the images are located onto anb_packer.py
-
-Make sure the meta.json file is in there too.
-
 
 **Warning**
 Do not resize the images.
@@ -28,7 +22,5 @@ Do not rename the images.
 Images must be in RGBA PNG format.
 You don't need to edit all the images, the tools will simply repack the unedited images along with yours.
 The meta.json is used for repacking information, make sure is always with the images.
-The number of extracted images must be the same when repacking!
-Make sure to rename the generated modded_ .anb file with the original .anb's name
 	
 	
