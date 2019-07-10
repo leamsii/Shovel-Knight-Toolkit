@@ -2,7 +2,6 @@
 <h4><b>Install Pillow Library at https://pypi.org/project/Pillow/ </b></h4>
 <h4><b>Compatible with Shovel Knight PC versions only</b></h4>
 
-<h3>Sprite Editing Instructions</h3>
 *Make sure to make copies of your files!
 
 <section>
@@ -15,6 +14,8 @@
 <p>To unpack a .anb file simply drag/drop the .anb file onto anb_packer.py</p>
 <p>To repack the extracted images simply drag/drop the folder where the images are located onto anb_packer.py</p>
 </section>
+
+<h3>Sprite Editing Instructions</h3>
 <ol>
   <li>Unpack the target .pak file</li>
   <li>Unpack the target .anb file</li>
@@ -27,11 +28,11 @@
 </ol>
 
 **Warnings**
-Do not resize the images.
-Do not rename the images.
-Images must be in RGBA PNG format.
-You don't need to edit all the images, the tools will simply repack the unedited images along with yours.
-The meta.dat file contains repacking information, make sure is always with the images.
+<p>Do not resize the images.</p>
+<p>Do not rename the images.</p>
+<p>Images must be in RGBA PNG format.</p>
+<p>You don't need to edit all the images, the tools will simply repack the unedited images along with yours.</p>
+<p>The meta.dat file contains repacking information, make sure is always with the images.</p>
 
 **Tips**
 The .pak packer tool skips any extra files it finds in the folder and keeps track of what files must be present when repacking.
