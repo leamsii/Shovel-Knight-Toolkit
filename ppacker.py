@@ -35,7 +35,6 @@ class PAKClass:
 
 		# Get the packed file names and data offsets
 		file_names = self.get_filenames(pak_file)
-		print(file_names)
 		data_sets  = self.get_datasets(pak_file)
 
 		print(f"Log: Extracting {len(file_names)} files..")
