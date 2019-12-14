@@ -25,7 +25,8 @@ def _exit(msg):
 	sys.exit(-1)
 
 def extract_wflz(file_name):
-	os.system("include\\wflz_extractor\\extractor.exe " + str(file_name))
+	file_name = f'"{str(file_name)}"'
+	os.system("include\\wflz_extractor\\extractor.exe " + file_name)
 
 class Main:
 	def __init__(self, file):
