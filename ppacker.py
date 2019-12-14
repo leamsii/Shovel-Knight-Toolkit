@@ -98,9 +98,9 @@ class PAKClass:
 
 		# Set the name offsets and data offsets and raw data
 		_buffer += self.get_body(len(file_names), files)
-
+		
 		# Write to the new packed file
-		with open('new.pak', 'wb') as ff:
+		with open(pak_dir.name + '.pak', 'wb') as ff:
 			ff.write(_buffer)
 
 	def get_body(self, num_file, files):

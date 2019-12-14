@@ -36,8 +36,9 @@ class Main:
 		self.directory = Path(str(Path(file).parent) + '\\' + Path(file).stem)
 		self.directory.mkdir(exist_ok=True)
 
-		print("Log: Extracting frames..")
-		for k, n in enumerate([n for n in self.nodes if n['type'] == 1]):
+		frames = [n for n in self.nodes if n['type'] == 1]
+		print(f"Log: Extracting {len(frames)} frames..")
+		for k, n in enumerate(frames):
 			node = n['node']
 			_buffer	=	self.get_buffer(file, node.data_offset)
 			file_name =	self.directory.joinpath(f'frame_{str(k)}.wflz')
