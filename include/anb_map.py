@@ -49,20 +49,21 @@ class ANBStruct:
 			self.recurr(file, self.get_node(file))
 
 	def get_node(self, file):
-		node = Node()
+		node = Node() # Gets the base node
 		file.readinto(node)
 
 		try:
 			_type = NodeTypeName[node.type]
-			n = eval(_type)()
+			n = eval(_type)() # Create a new node from the type
 			file.readinto(n)
 		
 			self.nodes.append({'type' : node.type, 'node' : n})
+
 		except Exception as e:
 			_exit(f"Error: Unkown node type {_type} {e}")
 
 		if node.num_children > 0:
 			file.seek(node.child_pointer + 0x10)
-
+			
 		return node
 

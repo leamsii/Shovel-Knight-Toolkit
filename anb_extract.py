@@ -37,6 +37,7 @@ class Main:
 		self.directory.mkdir(exist_ok=True)
 
 		frames = [n for n in self.nodes if n['type'] == 1]
+
 		print(f"Log: Extracting {len(frames)} frames..")
 		for k, n in enumerate(frames):
 			node = n['node']
