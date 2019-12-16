@@ -195,7 +195,7 @@ class PAKClass:
 
 if __name__ == '__main__':
 	# Verify the file exist and an arg was giving
-	if not len(sys.argv) == 2:
+	if not len(sys.argv) >= 2:
 		_exit("Error: Please specify a target .pak file.")
 	if not Path(sys.argv[1]).is_file() and not Path(sys.argv[1]).is_dir():
 		_exit(f"Error: The file '{sys.argv[1]}' was not found.")
