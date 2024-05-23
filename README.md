@@ -1,7 +1,3 @@
-***Update
-The new version of Shovel Knight has broken the old tool, I had to re-work a few things. You can only unpack assets and view them but cannot pack them back, for now.
-
-
 <h3>Dependencies</h3>
 <h4><b>Install Python at https://www.python.org/downloads/release/python-371/</b></h4>
 <h4><b>Install Pillow Library at https://pypi.org/project/Pillow/ </b></h4>
