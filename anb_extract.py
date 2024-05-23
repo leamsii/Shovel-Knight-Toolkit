@@ -14,6 +14,7 @@ import os
 import struct
 from time import sleep
 from pathlib import Path
+import zlib
 from node_structs import WFLZStruct
 from anb_map import ANBStruct
 
@@ -31,12 +32,9 @@ def extract_wflz(file_name):
 class Main:
 	def __init__(self, file):
 
-		self.add_offset = 0
-		with open(file, 'rb') as _file:
-			if struct.unpack('<I', _file.read(4))[0] != int.from_bytes(b'YCSN', byteorder='little'):
-				self.add_offset = 0x10
-
-		self.nodes = ANBStruct(file, self.add_offset).nodes
+		anb_instance = ANBStruct(file)
+		self.nodes = anb_instance.nodes
+		self.unk_offset = anb_instance.unk_offset
 
 		# Make the destination dir
 		self.directory = Path(str(Path(file).parent) + '\\' + Path(file).stem)
@@ -59,7 +57,7 @@ class Main:
 
 	def get_buffer(self, file, offset):
 		with open(file, 'rb') as file:
-			file.seek(offset + self.add_offset) #0x10 is the unk header for the ANB files.
+			file.seek(offset + self.unk_offset) # 0x10 is the unk header for some ANB files.
 			wflz_struct = WFLZStruct()
 			file.readinto(wflz_struct)
 			return file.read(wflz_struct.size)
@@ -71,14 +69,23 @@ class Main:
 			image_out = Image.frombytes('RGBA', (width, height), _buffer, 'raw')
 			image_out.save(Path(name).with_suffix('.png'))
 
+
 		except Exception as e:
 			os.remove(name)
 			_exit(f"Error: Could not convert raw pixels to image. Width: {width}, Height: {height} \n {e}")
 
 		os.remove(name)
+
+	def create_metafile(anb_data, checksums):
+		with open('meta.dat', 'wb') as file:
+			file.write(struct.pack('<I', len(checksums))) #The number of images for this anb file
+			for k, c in enumerate(checksums):
+				file.write(struct.pack('<I', c))
+			file.write(zlib.compress(anb_data))
 		
 if __name__ == '__main__':
 	# Verify the file exist and an arg was giving
+	print(sys.argv)
 	if not len(sys.argv) == 2:
 		_exit("Error: Please specify a target .anb file.")
 	if not Path(sys.argv[1]).is_file():

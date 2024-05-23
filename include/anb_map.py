@@ -28,13 +28,15 @@ def _exit(msg):
 	sys.exit(-1)
 
 class ANBStruct:
-	def __init__(self, _file, add_offset):
-		self.add_offset = add_offset
+	def __init__(self, _file):
+		self.unk_offset = 0
 		self.nodes = []
 		with open(_file, 'rb') as file:
+			if struct.unpack('<I', file.read(4))[0] != int.from_bytes(b'YCSN', byteorder='little'):
+				self.unk_offset = 0x10
 
 			# Header
-			file.seek(add_offset) # Unk Part
+			file.seek(self.unk_offset) # Unk Part
 			h = HeaderStruct()
 			file.readinto(h)
 
@@ -47,7 +49,7 @@ class ANBStruct:
 			offsets.append(struct.unpack('<Q', file.read(8))[0])
 
 		for o in offsets:
-			file.seek(o + self.add_offset)
+			file.seek(o + self.unk_offset)
 			self.recurr(file, self.get_node(file))
 
 	def get_node(self, file):
@@ -65,7 +67,7 @@ class ANBStruct:
 			_exit(f"Error: Unkown node type {_type} {e}")
 
 		if node.num_children > 0:
-			file.seek(node.child_pointer + self.add_offset)
+			file.seek(node.child_pointer + self.unk_offset)
 			
 		return node
 
