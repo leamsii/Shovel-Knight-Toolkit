@@ -30,8 +30,11 @@ def _exit(msg):
 class ANBStruct:
 	def __init__(self, _file):
 		self.unk_offset = 0
+		self.all_file_data = b''
 		self.nodes = []
 		with open(_file, 'rb') as file:
+			self.all_file_data = file.read()
+			file.seek(0)
 			if struct.unpack('<I', file.read(4))[0] != int.from_bytes(b'YCSN', byteorder='little'):
 				self.unk_offset = 0x10
 
@@ -64,7 +67,7 @@ class ANBStruct:
 			self.nodes.append({'type' : node.type, 'node' : n})
 
 		except Exception as e:
-			_exit(f"Error: Unkown node type {_type} {e}")
+			_exit(f"Error: Unkown node type {node.type}")
 
 		if node.num_children > 0:
 			file.seek(node.child_pointer + self.unk_offset)
