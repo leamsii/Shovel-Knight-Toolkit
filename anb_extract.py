@@ -11,7 +11,7 @@ except:
 	sys.exit(-1)
 
 import os
-import json
+import struct
 from time import sleep
 from pathlib import Path
 from node_structs import WFLZStruct
@@ -30,7 +30,13 @@ def extract_wflz(file_name):
 
 class Main:
 	def __init__(self, file):
-		self.nodes = ANBStruct(file).nodes
+
+		self.add_offset = 0
+		with open(file, 'rb') as _file:
+			if struct.unpack('<I', _file.read(4))[0] != int.from_bytes(b'YCSN', byteorder='little'):
+				self.add_offset = 0x10
+
+		self.nodes = ANBStruct(file, self.add_offset).nodes
 
 		# Make the destination dir
 		self.directory = Path(str(Path(file).parent) + '\\' + Path(file).stem)
@@ -53,7 +59,7 @@ class Main:
 
 	def get_buffer(self, file, offset):
 		with open(file, 'rb') as file:
-			file.seek(offset + 0x10) #0x10 is the unk header for the ANB files.
+			file.seek(offset + self.add_offset) #0x10 is the unk header for the ANB files.
 			wflz_struct = WFLZStruct()
 			file.readinto(wflz_struct)
 			return file.read(wflz_struct.size)
