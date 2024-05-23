@@ -6,14 +6,14 @@
 <h3>Tool Information</h3>
 <section>
 <h5>The .pak Packer Tool</h5>
-  <p>To unpack a .pak file using ppacker simply drag/drop the .pak file onto ppacker.py</p>
-  <p>To re-pack a folder, simply drag/drop the folder onto ppacker.py</p>
+  <p>To unpack a .pak file using ppacker run python ppacker.py "FILE SOURCE"</p>
+  <p>To re-pack a folder, run python ppacker.py "FOLDER SOURCE"</p>
 </section>
  
 <section>
 <h5>The .anb Packer Tool</h5>
-  <p>To unpack a .anb file simply drag/drop the .anb file onto anb_extract.py</p>
-  <p>To repack the extracted images simply drag/drop the folder where the images are located onto anb_extract.py</p>
+  <p>To unpack a .anb file run python anb_extract.py "FILE SOURCE"</p>
+  <p>To repack the extracted images run python anb_extract.py "FOLDER SOURCE"</p>
 </section>
 
 <h3>Sprite Editing Instructions</h3>
@@ -33,7 +33,7 @@
 <h3> Warnings </h3>
 <ul>
 <li>Do not rename the images</li>
-<li>Images must be in RGBA PNG format</li>
+<li>Images must be in RGBA PNG format (Try Gimp)</li>
 <li>You don't need to edit all the images, the tools will simply repack the unedited images along with yours</li>
 <li>The meta.dat file contains repacking information, make sure is always with the images</li>
 </ul>
