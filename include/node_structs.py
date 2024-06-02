@@ -34,11 +34,9 @@ class Vertex(LittleEndianStructure):
 		('flags',c_uint32),
 		('data_offset',c_uint64)
 	]
-class Meta(LittleEndianStructure):
-	_fields_ = [ # Describe
-	]
 class MetaScalar(LittleEndianStructure):
 	_fields_ = [
+		('unk',c_uint64)
 	]
 class MetaPoint(LittleEndianStructure):
 	_fields_ = [
@@ -68,12 +66,12 @@ class MetaRect(LittleEndianStructure):
 class MetaString(LittleEndianStructure):
 	_fields_ = [
 		('str_length',c_uint32),
-		('padding',c_uint32), # Not sure
+		('padding',c_uint32),
 		('string_offset',c_uint64)
 	]
 class MetaTable(LittleEndianStructure):
 	_fields_ = [
-		('hash_names',c_uint64) # Not sure
+		('hashname_pointer',c_uint64)
 	]
 class Frame(LittleEndianStructure):
 	_fields_ = [

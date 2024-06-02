@@ -14,10 +14,10 @@ def _exit(msg):
 	sys.exit(-1)
 
 def unpack(file, _bytes):
-	return struct.unpack({2: 'H', 4 : 'I'}[_bytes], file.read(_bytes))[0]
+	return struct.unpack({2: 'H', 4 : 'I', 8 : 'Q'}[_bytes], file.read(_bytes))[0]
 
 def pack(val, _bytes):
-	return struct.pack({2: 'H', 4 : 'I'}[_bytes], val)
+	return struct.pack({2: 'H', 4 : 'I', 8 : 'Q'}[_bytes], val)
 
 class PAKClass:
 	def __init__(self, pak_file):
@@ -30,9 +30,6 @@ class PAKClass:
 
 	
 	def unpack(self, pak_file):
-		if pak_file.stat().st_size < 50:
-			_exit("Error: This PAK file is too small.")
-
 		# Get the packed file names and data offsets
 		file_names = self.get_filenames(pak_file)
 		data_sets  = self.get_datasets(pak_file)
@@ -77,20 +74,20 @@ class PAKClass:
 			_exit(e)
 
 		# Create the PAK file header
-		_buffer = bytes(4) + pack(len(file_names), 4) + pack(24, 4) + bytes(4)
+		_buffer = bytes(4) + pack(len(file_names), 4) + pack(24, 8)
 		
 
 		# Verify all files exist and get their sizes, data
 		files = {}
 		print(f"Log: Packing {len(file_names)} files..")
 		for name in file_names:
-			#print("Log: Packing ", name)
 			if not Path(name).exists():
 				_exit("Error: Missing file " + name)
 
 			with open(name, 'rb') as file:
 				size =  os.path.getsize(name) - 16
-				data = pack(size, 4) + bytes(12) + file.read()
+
+				data = pack(size, 8)  + bytes(8) + file.read()
 				size = len(data)
 
 				files[name] = {'data_size' : size, 'name_size' : len(name) + 1, 'data' : data}
@@ -106,7 +103,7 @@ class PAKClass:
 	def get_body(self, num_file, files):
 		# Get the size of the chunk that contains the offsets
 		data_offset_offset = (num_file * 8) + 24
-		name_offset_chunksize = data_offset_chunksize = num_file * 8
+		name_offset_chunksize  = num_file * 8
 
 		# Get the total size of all the files
 		total_filesizes = 0
@@ -148,11 +145,12 @@ class PAKClass:
 		_buffer += pack(name_offset_chunksize, 4) + bytes(4)
 
 		# Name offsets
-		counter = 0
+		previous_name_sizes = 0
+		# Size = size of file name
 		for size in file_name_sizes:
-			c = name_offset_chunksize + size + counter
-			counter += size
-			_buffer += pack(c, 4) + bytes(4)
+			c = name_offset_chunksize + size + previous_name_sizes
+			previous_name_sizes += size
+			_buffer += pack(c, 8)
 
 		# Write the file names
 		_buffer += name_chunk
@@ -164,18 +162,17 @@ class PAKClass:
 		with open(pak_file, 'rb') as file:
 			file.seek(4)
 			num_files = unpack(file, 4) # Number of files
-			file.seek(unpack(file, 4)) # The data offset value
+			file.seek(unpack(file, 8)) # The data offset value
 
 			# Get data offsets
 			data_offsets = []
 			for _ in range(num_files):
-				data_offsets.append(unpack(file, 4))
-				file.read(4) # Padding
+				data_offsets.append(unpack(file, 8))
 
 			# Get data chunks 
 			for offset in data_offsets:
 				file.seek(offset)
-				size = unpack(file, 4) + 16
+				size = unpack(file, 8) + 0x10
 
 				file.seek(offset + 0x10)
 				data_sets.append(file.read(size))
@@ -185,9 +182,9 @@ class PAKClass:
 	def get_filenames(self, pak_file):
 		with open(pak_file, 'rb') as file:
 			file.seek(0x10)
-			name_offset = unpack(file, 4)
+			name_offset = unpack(file, 8)
 			file.seek(name_offset)
-			name_offset = unpack(file, 4)
+			name_offset = unpack(file, 8)
 			file.seek(name_offset)
 			names = [v for v in file.read().split(b'\x00') if v]
 		return names
