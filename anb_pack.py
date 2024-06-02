@@ -63,6 +63,7 @@ class ANBPack:
         sequence_hashes = [d for d in glob.glob('*') if Path(d).is_dir()]
         frames = self.get_nodes(10, self.metadata['Node'], [])
         sequences = {}
+        new_image_sizes = {}
         
         for sequence_hash in sequence_hashes:
             sequences[sequence_hash] = {}
@@ -70,10 +71,11 @@ class ANBPack:
             os.chdir(sequences_path)
             
             for image in glob.glob("*.png"):
+                (width, height) = Image.open(image).size
+                new_image_sizes[image] = {"width": width, "height": height}
                 compressed_image_path = sequences_path.joinpath(image)
                 compressed_wflz = self.compress_image(compressed_image_path)
                 sequences[sequence_hash][Path(image).stem] = compressed_wflz
-            
         for sequence in self.get_nodes(12, self.metadata['Node']['children'][0], []):
             for sequence_frame in self.get_nodes(11, sequence, []):
                 frame_index = sequence_frame['body']['frame']
@@ -82,15 +84,16 @@ class ANBPack:
                 texture = [n for n in frame['children'] if n['type'] == 1][0]
                 vertex = [n for n in frame['children'] if n['type'] == 2][0]
                 
-                vertex_chunk = b''
-                vertex_chunk += struct.pack('<I', vertex["body"]["hash_flag"])
-                vertex_chunk += struct.pack('<I', vertex["body"]["hash_size"])
-                vertex_chunk += base64.b64decode(vertex["body"]["hash"])
-                
+                image_width = new_image_sizes[f"frame_{frame_index}.png"]["width"]
+                image_height = new_image_sizes[f"frame_{frame_index}.png"]["height"]
+                                
                 new_sequence = sequences[str(sequence['body']['hash_name'])]
                 wflz_data = new_sequence[f"frame_{frame_index}"]
+                wflz_data += bytes(self.align(len(wflz_data), 16) - len(wflz_data))
+                texture['body']['width'] = image_width
+                texture['body']['height'] = image_height
                 texture['body']['wflz']['size'] = len(wflz_data)
-                texture['body']['wflz']['body'] = wflz_data + vertex_chunk
+                texture['body']['wflz']['body'] = wflz_data + self.build_vertex_chunk(vertex, image_width, image_height)
                 
         with open(self.directory.joinpath(self.directory.name + '.anb'), 'wb') as file:
             header = self.metadata['file_header']
@@ -110,7 +113,10 @@ class ANBPack:
                 file.write(struct.pack('<I', texture['body']['wflz']['flag']))
                 file.write(struct.pack('<I', texture['body']['wflz']['size']))
                 file.write(texture['body']['wflz']['body'])
-            
+                
+    def align(self, v: int, m: int):
+        mask = m - 1
+        return (v + mask) & ~mask    
             
     def get_nodes(self, node_type, node, nodes):
         if node['type'] == node_type:
@@ -118,10 +124,22 @@ class ANBPack:
         for _node in node['children']:
             self.get_nodes(node_type, _node, nodes)
         return nodes
+    
+    def build_vertex_chunk(self, vertex, image_width, image_height):
+        vertex_chunk = b''
+        vertex_chunk += struct.pack('<I', vertex["body"]["hash_flag"])
+        vertex_chunk += struct.pack('<I', 16)
+        vertex_chunk += struct.pack('<f', -(image_width/2))
+        vertex_chunk += struct.pack('<f', -image_height)
+        vertex_chunk += struct.pack('<H', 1)
+        vertex_chunk += struct.pack('<H', 1)
+        vertex_chunk += struct.pack('<H', image_width)
+        vertex_chunk += struct.pack('<H', image_height)
+        return vertex_chunk
         
     
     def traverse(self, file, node, parent):
-        self.unpack_node(node, file)
+        self.unpack_node(node, file, parent)
 
         print(NodeTypeName[node['type']], node['offset'])
     
@@ -178,7 +196,7 @@ class ANBPack:
     
         script_dir = os.path.dirname(__file__)
         full_path = os.path.join(script_dir, "include", "wflz_extractor", "extractor.exe")
-        compression_size = 370 # NEEDS UPDATING
+        #compression_size = 500 # NEEDS UPDATING
         
         os.system(full_path + ' ' + image_data_file_name + ' ' + str(compression_size))
         wflz_data = Path(image_name).with_suffix('.wflz').read_bytes()
@@ -187,7 +205,7 @@ class ANBPack:
         
         return wflz_data
     
-    def unpack_node(self, node, file):
+    def unpack_node(self, node, file, parent):
         _type = NodeTypeName[node['type']]
         
         node['offset'] = file.tell()
@@ -201,14 +219,17 @@ class ANBPack:
             
             data_offset = self.main_body_node_size + self.hash_chunk_size + self.previous_wflz_size
             node_chunk_body += struct.pack('<Q', data_offset)
-            self.previous_wflz_size += len(node['body']['wflz']['body'])
 
         if _type == 'Vertex':
-            node_chunk_body += struct.pack('<I', node["body"]["num_verts"])
+            node_chunk_body += struct.pack('<I', 1)
             node_chunk_body += struct.pack('<I', node["body"]["flags"])
             
-            hash_offset = self.main_body_node_size + self.hash_chunk_size + self.previous_wflz_size
+            
+            parent_texture = [n for n in parent['children'] if n['type'] == 1][0]
+            self.previous_wflz_size += len(parent_texture['body']['wflz']['body']) + 8
+            hash_offset = (self.main_body_node_size + self.hash_chunk_size + (self.previous_wflz_size - 24))
             node_chunk_body += struct.pack('<Q', hash_offset)
+            
     
         if _type == 'MetaPoint':
             node_chunk_body += struct.pack('<f', node["body"]["x"])
@@ -237,18 +258,25 @@ class ANBPack:
             node_chunk_body += struct.pack('<I', node["body"]["str_length"])
             node_chunk_body += struct.pack('<I', node["body"]["padding"])
             
-            node_chunk_body += bytes(8) # Temporary Hash
+            hash_offset = self.main_body_node_size + len(self.hash_chunk)
+
+            node_chunk_body += struct.pack('<Q', hash_offset)
             self.hash_chunk += struct.pack('<I', node["body"]["string_flag"])
             self.hash_chunk += struct.pack('<I', node["body"]["string_size"])
             self.hash_chunk += base64.b64decode(node["body"]["string"])
 
         if _type == 'MetaTable':
             hashname_pointer = node['body']['hashname_pointer']
-            node_chunk_body += bytes(8) # Temporary Hash Pointer
+            hash_offset = self.main_body_node_size + len(self.hash_chunk)
+            print(hash_offset)
             if hashname_pointer != 0:
+                node_chunk_body += struct.pack('<Q', hash_offset)
                 self.hash_chunk += struct.pack('<I', node["body"]["hash_flag"])
                 self.hash_chunk += struct.pack('<I', node["body"]["hash_size"])
                 self.hash_chunk += base64.b64decode(node["body"]["hash"])
+            else:
+                node_chunk_body += bytes(8)
+                
 
         if _type == 'SequenceFrame':
             node_chunk_body += struct.pack('<I', node["body"]["frame"])
@@ -276,7 +304,7 @@ class ANBPack:
             node_chunk_body += struct.pack('<f', node["body"]["maxy"])
 
         if _type == 'MetaScalar':
-            node_chunk_body += struct.pack('<Q', node["body"]["unk"]) # Might be a Hash Pointer Here
+            node_chunk_body += struct.pack('<Q', node["body"]["unk"])
             
         file.write(node_chunk_body)
     

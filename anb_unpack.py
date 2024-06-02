@@ -49,6 +49,8 @@ class ANBUnpack:
                 wflz_file_name = directory_path.joinpath(f'frame_{str(frame_index)}.wflz')
                 open(wflz_file_name, 'wb').write(wflz_data)
                 
+                print(frame_index, vertex['body']['pieces'])
+                
                 self.extract_wflz(wflz_file_name)
                 self.create_image(wflz_file_name.with_suffix('.dat'), texture_width, texture_height, vertex['body']['pieces'])
                 os.remove(wflz_file_name)
