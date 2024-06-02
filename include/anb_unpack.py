@@ -4,7 +4,6 @@
 
 from anbjson import ANBToJSON
 import sys
-sys.path.insert(0, 'include')
 
 try:
 	from PIL import Image
@@ -30,6 +29,8 @@ class ANBUnpack:
         frames = self.get_nodes(10, self.metadata['Node'], [])
         sequences = self.get_nodes(12, self.metadata['Node']['children'][0], [])
         
+        print(f"Log: Unpacking {len(sequences)} Animation(s)..")
+        
         for sequence in sequences:
             directory_name = str(sequence['body']['hash_name'])
             directory_path = self.directory.joinpath(directory_name)
@@ -49,11 +50,11 @@ class ANBUnpack:
                 wflz_file_name = directory_path.joinpath(f'frame_{str(frame_index)}.wflz')
                 open(wflz_file_name, 'wb').write(wflz_data)
                 
-                print(frame_index, vertex['body']['pieces'])
-                
                 self.extract_wflz(wflz_file_name)
                 self.create_image(wflz_file_name.with_suffix('.dat'), texture_width, texture_height, vertex['body']['pieces'])
                 os.remove(wflz_file_name)
+                
+        print("Log: Finished.")
             
     
     def get_nodes(self, node_type, node, nodes):
@@ -111,8 +112,3 @@ class ANBUnpack:
     def extract_wflz(self, filename):
         filename = f'"{str(filename)}"'
         os.system("include\\wflz_extractor\\extractor.exe " + filename)
-        
-        
-if __name__ == '__main__':
-    ANBUnpack(sys.argv[1])
-

@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import sys
-sys.path.insert(0, 'include')
-
 try:
 	from PIL import Image
 except:
@@ -63,6 +61,8 @@ class ANBPack:
         sequence_hashes = [d for d in glob.glob('*') if Path(d).is_dir()]
         frames = self.get_nodes(10, self.metadata['Node'], [])
         sequences = {}
+        old_sequences = self.get_nodes(12, self.metadata['Node']['children'][0], [])
+        print(f"Log: Packing {len(old_sequences)} Animation(s)..")
         new_image_sizes = {}
         
         for sequence_hash in sequence_hashes:
@@ -76,7 +76,8 @@ class ANBPack:
                 compressed_image_path = sequences_path.joinpath(image)
                 compressed_wflz = self.compress_image(compressed_image_path)
                 sequences[sequence_hash][Path(image).stem] = compressed_wflz
-        for sequence in self.get_nodes(12, self.metadata['Node']['children'][0], []):
+                
+        for sequence in old_sequences:
             for sequence_frame in self.get_nodes(11, sequence, []):
                 frame_index = sequence_frame['body']['frame']
                 
@@ -113,6 +114,8 @@ class ANBPack:
                 file.write(struct.pack('<I', texture['body']['wflz']['flag']))
                 file.write(struct.pack('<I', texture['body']['wflz']['size']))
                 file.write(texture['body']['wflz']['body'])
+        
+        print("Log: Finished.")
                 
     def align(self, v: int, m: int):
         mask = m - 1
@@ -140,15 +143,12 @@ class ANBPack:
     
     def traverse(self, file, node, parent):
         self.unpack_node(node, file, parent)
-
-        print(NodeTypeName[node['type']], node['offset'])
     
         TraversedNodes[NodeTypeName[parent['type']]] = TraversedNodes.get(NodeTypeName[parent["type"]], 0) + 1
         if TraversedNodes[NodeTypeName[parent["type"]]] >= parent["num_children"]:
             TraversedNodes[NodeTypeName[parent["type"]]] = 0
             for child in parent['children']:
                 file.write(struct.pack('<Q', child['offset']))
-            print("End of Chunk")
 
         for _node in node['children']:
             self.traverse(file, _node, node)
@@ -195,8 +195,7 @@ class ANBPack:
         image_data_file_name = f'"{str(image_data_file_name)}"'
     
         script_dir = os.path.dirname(__file__)
-        full_path = os.path.join(script_dir, "include", "wflz_extractor", "extractor.exe")
-        #compression_size = 500 # NEEDS UPDATING
+        full_path = os.path.join(script_dir, "wflz_extractor", "extractor.exe")
         
         os.system(full_path + ' ' + image_data_file_name + ' ' + str(compression_size))
         wflz_data = Path(image_name).with_suffix('.wflz').read_bytes()
@@ -268,7 +267,6 @@ class ANBPack:
         if _type == 'MetaTable':
             hashname_pointer = node['body']['hashname_pointer']
             hash_offset = self.main_body_node_size + len(self.hash_chunk)
-            print(hash_offset)
             if hashname_pointer != 0:
                 node_chunk_body += struct.pack('<Q', hash_offset)
                 self.hash_chunk += struct.pack('<I', node["body"]["hash_flag"])
@@ -307,8 +305,3 @@ class ANBPack:
             node_chunk_body += struct.pack('<Q', node["body"]["unk"])
             
         file.write(node_chunk_body)
-    
-        
-        
-if __name__ == '__main__':
-    ANBPack(sys.argv[1])

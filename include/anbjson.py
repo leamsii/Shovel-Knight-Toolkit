@@ -61,7 +61,7 @@ class ANBToJSON:
         }
         
         if parent:
-            print(node_name, node.num_children, NodeTypeName[parent['type']])
+            #print(node_name, node.num_children, NodeTypeName[parent['type']])
             parent['children'].append(body)
         else:
             self.metadata["Node"] = body

@@ -43,6 +43,8 @@ class PAKTool:
         with open(parent_dir.joinpath('metadata.json'), 'w') as file:
             json.dump(FILE_NAME_HASHES, file)
             
+        print("Log: Finished.")
+            
     def pack(self, foldername):
         os.chdir(foldername)
         
@@ -81,7 +83,7 @@ class PAKTool:
         file_name_table_offsets = b''
         for name in file_names:
             offset = current_file_position + file_name_table_offs_size + previous_file_name_size
-            previous_file_name_size += len(name) + 1
+            previous_file_name_size += len(name) + len(bytes(max(1, self.align(len(name), 8) - len(name))))
             file_name_table_offsets += struct.pack('<Q', offset)
         return file_name_table_offsets
               
@@ -104,7 +106,7 @@ class PAKTool:
                 file_data = file.read()
                 anb_header = self.build_anb_header(name, len(file_data))
                 assert len(anb_header) == ANB_HEADER_SIZE
-                data_chunks.append(anb_header + file_data)
+                data_chunks.append(anb_header + file_data + bytes(self.align(len(file_data), 16) - len(file_data)))
         return data_chunks
         
         
@@ -112,7 +114,7 @@ class PAKTool:
         return struct.pack('<QQIIII', file_data_size, 0, FILE_NAME_HASHES[filename], 1, 1, 0)
     
     def build_file_names_chunk(self, file_names):
-        encoded_names = [name.encode('utf-8') + bytes(1) for name in file_names]
+        encoded_names = [name.encode('utf-8') + bytes(max(1, self.align(len(name), 8) - len(name))) for name in file_names]
         name_chunk = b''.join(encoded_names)
         return name_chunk 
             
@@ -131,9 +133,14 @@ class PAKTool:
         FILE_NAME_HASHES[name.decode()] = filename_hash
         return file.read(size)
     
+    def align(self, v: int, m: int):
+        mask = m - 1
+        return (v + mask) & ~mask
+    
     
 if __name__ == '__main__':
-	if len(sys.argv) != 2: print("Error: Please specify a target .pak file or directory to pack.")
-
-	os.chdir(Path(sys.argv[1]).parent)
-	PAKTool(Path(sys.argv[1]))
+    if len(sys.argv) != 2:
+        print("Error: Please specify a target .pak file or directory to pack.")
+        exit()
+    os.chdir(Path(sys.argv[1]).parent)
+    PAKTool(Path(sys.argv[1]))
