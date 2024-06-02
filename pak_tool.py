@@ -111,7 +111,8 @@ class PAKTool:
         
         
     def build_anb_header(self, filename, file_data_size):
-        return struct.pack('<QQIIII', file_data_size, 0, FILE_NAME_HASHES[filename], 1, 1, 0)
+        file_info = FILE_NAME_HASHES[filename]
+        return struct.pack('<QQIIII', file_data_size, 0, file_info['filename_hash'], file_info['flags'], file_info['specials'], 0)
     
     def build_file_names_chunk(self, file_names):
         encoded_names = [name.encode('utf-8') + bytes(max(1, self.align(len(name), 8) - len(name))) for name in file_names]
@@ -130,7 +131,8 @@ class PAKTool:
     def get_file_data(self, file, data_offset, name):
         file.seek(data_offset)
         size, time, filename_hash, flags, specials, pad = struct.unpack('<QQIIII', file.read(struct.calcsize('<QQIIII')))
-        FILE_NAME_HASHES[name.decode()] = filename_hash
+        assert (time == 0 and pad == 0 )
+        FILE_NAME_HASHES[name.decode()] = {"filename_hash": filename_hash, "flags": flags, "specials": specials}
         return file.read(size)
     
     def align(self, v: int, m: int):
