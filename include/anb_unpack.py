@@ -46,6 +46,8 @@ class ANBUnpack:
                 texture_width = texture['body']['width']
                 texture_height = texture['body']['height']
                 
+                #print(frame_index, vertex['body']['pieces'])
+                
                 wflz_data = base64.b64decode(texture['body']['wflz']['body'])
                 wflz_file_name = directory_path.joinpath(f'frame_{str(frame_index)}.wflz')
                 open(wflz_file_name, 'wb').write(wflz_data)

@@ -34,7 +34,7 @@ NodeStructureSize = {
 	'Node': 24,
 	'Texture': 24,
 	'Vertex': 16,
-	'MetaScalar': 16,
+	'MetaScalar': 8,
 	'MetaPoint': 16,
 	'MetaAnchor': 16,
 	'MetaRect': 32,
@@ -88,11 +88,11 @@ class ANBPack:
                 image_width = new_image_sizes[f"frame_{frame_index}.png"]["width"]
                 image_height = new_image_sizes[f"frame_{frame_index}.png"]["height"]
                 
-                vertex_chunk = self.build_vertex_chunk(vertex, image_width, image_height, frame)
+                vertex_chunk = self.build_vertex_chunk(vertex, image_width, image_height, frame, frame_index)
                                 
                 new_sequence = sequences[str(sequence['body']['hash_name'])]
                 wflz_data = new_sequence[f"frame_{frame_index}"]
-                wflz_data += bytes(self.align(len(wflz_data), 4) - len(wflz_data))
+                wflz_data += bytes(self.align(len(wflz_data), 8) - len(wflz_data))
                 texture['body']['width'] = image_width
                 texture['body']['height'] = image_height
                 texture['body']['wflz']['size'] = len(wflz_data)
@@ -130,7 +130,7 @@ class ANBPack:
             self.get_nodes(node_type, _node, nodes)
         return nodes
     
-    def build_vertex_chunk(self, vertex, image_width, image_height, frame):
+    def build_vertex_chunk(self, vertex, image_width, image_height, frame, frame_index):
         vertex_chunk = b''
         
         posX = round(frame["body"]["minx"] * 20) / 2
@@ -168,11 +168,13 @@ class ANBPack:
         if 'hash_size' in node['body'] and NodeTypeName[node['type']] != 'Vertex' :
             self.hash_chunk_size += 4 # Flag
             self.hash_chunk_size += 4 # Size
-            self.hash_chunk_size += max(node['body']['hash_size'], 8)
+            self.hash_chunk_size += node['body']['hash_size'] + (self.align(node['body']['hash_size'], 8) - node['body']['hash_size'])
+            
         if 'string_size' in node['body']:
             self.hash_chunk_size += 4 # Flag
             self.hash_chunk_size += 4 # Size
             self.hash_chunk_size += node['body']['string_size']
+            self.hash_chunk_size += self.align(node["body"]["string_size"], 8) - node["body"]["string_size"]
             
         for _node in node['children']:
             self.get_chunk_sizes(_node)
@@ -232,7 +234,6 @@ class ANBPack:
             node_chunk_body += struct.pack('<I', 1)
             node_chunk_body += struct.pack('<I', node["body"]["flags"])
             
-            
             parent_texture = [n for n in parent['children'] if n['type'] == 1][0]
             self.previous_wflz_size += len(parent_texture['body']['wflz']['body']) + 8
             hash_offset = (self.main_body_node_size + self.hash_chunk_size + (self.previous_wflz_size - 24))
@@ -271,7 +272,9 @@ class ANBPack:
             node_chunk_body += struct.pack('<Q', hash_offset)
             self.hash_chunk += struct.pack('<I', node["body"]["string_flag"])
             self.hash_chunk += struct.pack('<I', node["body"]["string_size"])
-            self.hash_chunk += base64.b64decode(node["body"]["string"])
+            
+            hash = base64.b64decode(node["body"]["string"])
+            self.hash_chunk += hash + bytes(self.align(node["body"]["string_size"], 8) - node["body"]["string_size"])
 
         if _type == 'MetaTable':
             hashname_pointer = node['body']['hashname_pointer']
@@ -280,7 +283,9 @@ class ANBPack:
                 node_chunk_body += struct.pack('<Q', hash_offset)
                 self.hash_chunk += struct.pack('<I', node["body"]["hash_flag"])
                 self.hash_chunk += struct.pack('<I', node["body"]["hash_size"])
-                self.hash_chunk += base64.b64decode(node["body"]["hash"])
+             
+                hash = base64.b64decode(node["body"]["hash"])
+                self.hash_chunk += hash + bytes(self.align(len(hash), 8) - len(hash))
             else:
                 node_chunk_body += bytes(8)
                 
@@ -302,7 +307,9 @@ class ANBPack:
             node_chunk_body += struct.pack('<Q', self.main_body_node_size)
             self.hash_chunk += struct.pack('<I', node["body"]["hash_flag"])
             self.hash_chunk += struct.pack('<I', node["body"]["hash_size"])
-            self.hash_chunk += base64.b64decode(node["body"]["hash"])
+            
+            hash = base64.b64decode(node["body"]["hash"])
+            self.hash_chunk += hash + bytes(self.align(len(hash), 8) - len(hash))
    
         if _type == 'Frame':
             node_chunk_body += struct.pack('<f', node["body"]["minx"])
