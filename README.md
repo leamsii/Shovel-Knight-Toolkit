@@ -22,6 +22,7 @@
 <li>Images must be in RGBA PNG format (Try Gimp)</li>
 <li>You don't need to edit all the images, the tools will simply repack the unedited images along with yours</li>
 <li>Don't delete any metadata files</li>
+<li>Some .anb files are fixed to specific palettes, if your sprite's coloring is off, try switching out the palette, they're all in global_free.pak</li>
 </ul>
 
 <h3>How to Use The Tools</h3>
