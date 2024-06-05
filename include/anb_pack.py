@@ -214,8 +214,10 @@ class ANBPack:
         new_width = self.align_image(width, 8)
         new_height = self.align_image(height, 8)
         
+        padding_top = new_height - height
+        
         new_image = Image.new("RGBA", (new_width, new_height))
-        new_image.paste(image, (0, 0))
+        new_image.paste(image, (0, padding_top))
         return new_image
     
     def align_image(self, v: int, m: int):
