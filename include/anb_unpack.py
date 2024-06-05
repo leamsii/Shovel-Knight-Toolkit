@@ -46,14 +46,14 @@ class ANBUnpack:
                 texture_width = texture['body']['width']
                 texture_height = texture['body']['height']
                 
-                #print(frame_index, vertex['body']['pieces'])
+                #print(frame_index, vertex['body']['pieces'], texture_width,texture_height)
                 
                 wflz_data = base64.b64decode(texture['body']['wflz']['body'])
                 wflz_file_name = directory_path.joinpath(f'frame_{str(frame_index)}.wflz')
                 open(wflz_file_name, 'wb').write(wflz_data)
                 
                 self.extract_wflz(wflz_file_name)
-                self.create_image(wflz_file_name.with_suffix('.dat'), texture_width, texture_height, vertex['body']['pieces'])
+                self.create_image(wflz_file_name.with_suffix('.dat'), texture_width, texture_height, vertex['body']['pieces'], frame_index)
                 os.remove(wflz_file_name)
                 
         print("Log: Finished.")
@@ -66,7 +66,7 @@ class ANBUnpack:
             self.get_nodes(node_type, _node, nodes)
         return nodes
     
-    def create_image(self, name, width, height, vertices):
+    def create_image(self, name, width, height, vertices, frame_index):
         _buffer = Path(name).read_bytes()
         image_out = Image.frombytes('RGBA', (width, height), _buffer, 'raw')
         image_out.save(Path(name).with_suffix('.png'))
@@ -92,6 +92,8 @@ class ANBUnpack:
         
         # Create a new blank image with RGBA mode to handle transparency
         final_image = Image.new("RGBA", (adjusted_max_width, adjusted_max_height))
+        
+        #print(frame_index, (width, height), (adjusted_max_width, adjusted_max_height))
         
         for vertex in adjusted_vertices:
             region = (vertex["texX"],

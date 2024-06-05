@@ -72,7 +72,7 @@ class ANBPack:
             
             for image in glob.glob("*.png"):
                 (width, height) = Image.open(image).size
-                new_image_sizes[image] = {"width": width, "height": height}
+                new_image_sizes[image] = {"width": self.align_image(width, 8), "height": self.align_image(height, 8)}
                 compressed_image_path = sequences_path.joinpath(image)
                 compressed_wflz = self.compress_image(compressed_image_path)
                 sequences[sequence_hash][Path(image).stem] = compressed_wflz
@@ -92,11 +92,11 @@ class ANBPack:
                                 
                 new_sequence = sequences[str(sequence['body']['hash_name'])]
                 wflz_data = new_sequence[f"frame_{frame_index}"]
-                wflz_data += bytes(self.align(len(wflz_data), 8) - len(wflz_data))
+                
                 texture['body']['width'] = image_width
                 texture['body']['height'] = image_height
                 texture['body']['wflz']['size'] = len(wflz_data)
-                texture['body']['wflz']['body'] = wflz_data + vertex_chunk
+                texture['body']['wflz']['body'] = wflz_data + bytes((self.align(len(wflz_data), 8) - len(wflz_data))) + vertex_chunk
                 
         with open(self.directory.joinpath(self.directory.name + '.anb'), 'wb') as file:
             header = self.metadata['file_header']
@@ -132,14 +132,11 @@ class ANBPack:
     
     def build_vertex_chunk(self, vertex, image_width, image_height, frame, frame_index):
         vertex_chunk = b''
-        
-        posX = round(frame["body"]["minx"] * 20) / 2
-        posY = round(frame["body"]["miny"] * 20) / 2
-                
+                    
         vertex_chunk += struct.pack('<I', vertex["body"]["hash_flag"])
         vertex_chunk += struct.pack('<I', 16)
-        vertex_chunk += struct.pack('<f', posX)
-        vertex_chunk += struct.pack('<f', posY)
+        vertex_chunk += struct.pack('<f', -(image_width / 2))
+        vertex_chunk += struct.pack('<f', -image_height)
         vertex_chunk += struct.pack('<H', 0)
         vertex_chunk += struct.pack('<H', 0)
         vertex_chunk += struct.pack('<H', image_width)
@@ -180,25 +177,20 @@ class ANBPack:
             self.get_chunk_sizes(_node)
             
     def compress_image(self, image_name):
-        _image = Image.open(image_name)
-        pixels = list(_image.getdata())
-        width, height = _image.size
+        _image = Image.open(image_name) 
+        padded_image = self.get_padded_image(_image.width, _image.height, _image)
+        
+        width, height = padded_image.size
+        pixels = list(padded_image.getdata())
         
         pixels = [pixels[i * width:(i + 1) * width] for i in range(height)]
+        compression_size = width * height * 4
         
         image_data_file_name = image_name.with_suffix('.dat')
-        compression_size = 0
         with open(image_data_file_name, 'wb') as file:
-            for arr in pixels:
-                for tup in arr:
-                    r,g,b,a = tup
-                    r = struct.pack('<B', r)
-                    g = struct.pack('<B', g)
-                    b = struct.pack('<B', b)
-                    a = struct.pack('<B', a)
-                    file.write(r + g + b + a)
-                    
-                    compression_size += 4
+            for row in pixels:
+                for r,g,b,a in row:
+                    file.write(struct.pack('<BBBB', r, g, b, a))
                     
         
         image_data_file_name = f'"{str(image_data_file_name)}"'
@@ -206,14 +198,32 @@ class ANBPack:
         script_dir = os.path.dirname(__file__)
         full_path = os.path.join(script_dir, "wflz_extractor", "extractor.exe")
         
-        compression_size = round(compression_size / 2)
-        
         os.system(full_path + ' ' + image_data_file_name + ' ' + str(compression_size))
+        with open(Path(image_name).with_suffix('.wflz'), 'rb') as file:
+            file.seek(4)
+            compression_size = struct.unpack('<I', file.read(4))[0]
+        os.system(full_path + ' ' + image_data_file_name + ' ' + str(compression_size + 16))
         wflz_data = Path(image_name).with_suffix('.wflz').read_bytes()
+        
         os.remove(Path(image_name).with_suffix('.wflz'))
         os.remove(Path(image_name).with_suffix('.dat'))
         
         return wflz_data
+    
+    def get_padded_image(self, width, height, image):
+        new_width = self.align_image(width, 8)
+        new_height = self.align_image(height, 8)
+        
+        new_image = Image.new("RGBA", (new_width, new_height))
+        new_image.paste(image, (0, 0))
+        return new_image
+    
+    def align_image(self, v: int, m: int):
+        mask = m - 1
+        aligned_value = (v + mask) & ~mask
+        if aligned_value < v:
+            aligned_value += m
+        return aligned_value
     
     def unpack_node(self, node, file, parent):
         _type = NodeTypeName[node['type']]
@@ -273,7 +283,7 @@ class ANBPack:
             self.hash_chunk += struct.pack('<I', node["body"]["string_flag"])
             self.hash_chunk += struct.pack('<I', node["body"]["string_size"])
             
-            hash = base64.b64decode(node["body"]["string"])
+            hash = node["body"]["string"].encode('utf-8')
             self.hash_chunk += hash + bytes(self.align(node["body"]["string_size"], 8) - node["body"]["string_size"])
 
         if _type == 'MetaTable':

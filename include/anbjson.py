@@ -62,6 +62,14 @@ class ANBToJSON:
         
         if parent:
             #print(node_name, node.num_children, NodeTypeName[parent['type']])
+            """
+            if node_name == "Sequence":
+                print("Sequence", body["body"]["hash_name"], body["body"]["frame_count"])
+            if node_name == "SequenceFrame":
+                print("SequenceFrame", body["body"]["frame"])
+            if node_name == "Texture":
+                print("Texture", body["body"]["width"], body["body"]["height"])"""
+                
             parent['children'].append(body)
         else:
             self.metadata["Node"] = body
@@ -99,7 +107,7 @@ class ANBToJSON:
                 file.seek(node.string_offset)
                 body['string_flag'] = struct.unpack('<I', file.read(4))[0]
                 body['string_size'] = struct.unpack('<I', file.read(4))[0]
-                body['string'] = self.encode_blob(file.read(body['string_size']))
+                body['string'] = file.read(body['string_size']).decode('utf-8')
                 
             if node_name == 'MetaTable':
                 if node.hashname_pointer != 0:
