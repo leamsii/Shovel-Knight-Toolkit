@@ -23,9 +23,6 @@ class ANBUnpack:
         self.directory = Path(str(Path(filename).parent) + '\\' + Path(filename).stem)
         self.directory.mkdir(exist_ok=True)
         
-        with open(self.directory.joinpath('metadata.json'), 'w') as file:
-            json.dump(self.metadata, file)
-        
         frames = self.get_nodes(10, self.metadata['Node'], [])
         sequences = self.get_nodes(12, self.metadata['Node']['children'][0], [])
         
@@ -46,8 +43,6 @@ class ANBUnpack:
                 texture_width = texture['body']['width']
                 texture_height = texture['body']['height']
                 
-                #print(frame_index, vertex['body']['pieces'], texture_width,texture_height)
-                
                 wflz_data = base64.b64decode(texture['body']['wflz']['body'])
                 wflz_file_name = directory_path.joinpath(f'frame_{str(frame_index)}.wflz')
                 open(wflz_file_name, 'wb').write(wflz_data)
@@ -55,6 +50,9 @@ class ANBUnpack:
                 self.extract_wflz(wflz_file_name)
                 self.create_image(wflz_file_name.with_suffix('.dat'), texture_width, texture_height, vertex['body']['pieces'], frame_index)
                 os.remove(wflz_file_name)
+                
+        with open(self.directory.joinpath('metadata.json'), 'w') as file:
+            json.dump(self.metadata, file)
                 
         print("Log: Finished.")
             
@@ -67,47 +65,34 @@ class ANBUnpack:
         return nodes
     
     def create_image(self, name, width, height, vertices, frame_index):
+
         _buffer = Path(name).read_bytes()
         image_out = Image.frombytes('RGBA', (width, height), _buffer, 'raw')
-        image_out.save(Path(name).with_suffix('.png'))
-        
-        min_posX = min(piece["posX"] for piece in vertices)
-        min_posY = min(piece["posY"] for piece in vertices)
-        
-        # Adjust coordinates to ensure all are non-negative
-        adjusted_vertices = [
-            {
-                "posX": vertex["posX"] - min_posX,
-                "posY": vertex["posY"] - min_posY,
-                "texX": vertex["texX"],
-                "texY": vertex["texY"],
-                "width": vertex["width"],
-                "height": vertex["height"]
-            }
-            for vertex in vertices
-        ]
-        
-        adjusted_max_width = max(int(piece["posX"]) + piece["width"] for piece in adjusted_vertices)
-        adjusted_max_height = max(int(piece["posY"]) + piece["height"] for piece in adjusted_vertices)
-        
-        # Create a new blank image with RGBA mode to handle transparency
-        final_image = Image.new("RGBA", (adjusted_max_width, adjusted_max_height))
-        
-        #print(frame_index, (width, height), (adjusted_max_width, adjusted_max_height))
-        
-        for vertex in adjusted_vertices:
-            region = (vertex["texX"],
-                    vertex["texY"],
-                    vertex["texX"] + vertex["width"],
-                    vertex["texY"] + vertex["height"])
+
+        min_posX = min(vertex["posX"] for vertex in vertices)
+        min_posY = min(vertex["posY"] for vertex in vertices)
+        max_posX = max(vertex["posX"] + vertex["width"] for vertex in vertices)
+        max_posY = max(vertex["posY"] + vertex["height"] for vertex in vertices)
+
+        canvas_width = int(max_posX - min_posX)
+        canvas_height = int(max_posY - min_posY)
+
+        final_image = Image.new("RGBA", (canvas_width, canvas_height))
+        for vertex in vertices:
             
+            texX = vertex["texX"]
+            texY = vertex["texY"]
+            piece_width = vertex["width"]
+            piece_height = vertex["height"]
+
+            region = (texX, texY, texX + piece_width, texY + piece_height)
             piece = image_out.crop(region)
-            
-            paste_x = int(vertex["posX"])
-            paste_y = int(vertex["posY"])
+
+            paste_x = int(vertex["posX"] - min_posX)
+            paste_y = int(vertex["posY"] - min_posY)
             
             final_image.paste(piece, (paste_x, paste_y), piece)
-        
+
         final_image.save(Path(name).with_suffix('.png'))
         
         os.remove(name)

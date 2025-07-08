@@ -88,7 +88,7 @@ class ANBPack:
                 image_width = new_image_sizes[f"frame_{frame_index}.png"]["width"]
                 image_height = new_image_sizes[f"frame_{frame_index}.png"]["height"]
                 
-                vertex_chunk = self.build_vertex_chunk(vertex, image_width, image_height, frame, frame_index)
+                vertex_chunk = self.build_vertex_chunk(vertex, image_width, image_height, frame_index)
                                 
                 new_sequence = sequences[str(sequence['body']['hash_name'])]
                 wflz_data = new_sequence[f"frame_{frame_index}"]
@@ -130,13 +130,16 @@ class ANBPack:
             self.get_nodes(node_type, _node, nodes)
         return nodes
     
-    def build_vertex_chunk(self, vertex, image_width, image_height, frame, frame_index):
+    def build_vertex_chunk(self, vertex, image_width, image_height, frame_index):
+        # Images with multiple vertices get baked into a single image. Everything now has 1 vert.
         vertex_chunk = b''
                     
         vertex_chunk += struct.pack('<I', vertex["body"]["hash_flag"])
-        vertex_chunk += struct.pack('<I', 16)
-        vertex_chunk += struct.pack('<f', -(image_width / 2))
+        vertex_chunk += struct.pack('<I', vertex["body"]["hash_size"])
+        
+        vertex_chunk += struct.pack('<f', 0)
         vertex_chunk += struct.pack('<f', -image_height)
+            
         vertex_chunk += struct.pack('<H', 0)
         vertex_chunk += struct.pack('<H', 0)
         vertex_chunk += struct.pack('<H', image_width)
@@ -243,13 +246,13 @@ class ANBPack:
             node_chunk_body += struct.pack('<Q', data_offset)
 
         if _type == 'Vertex':
-            node_chunk_body += struct.pack('<I', 1)
+            node_chunk_body += struct.pack('<I', 1)#struct.pack('<I', node["body"]["num_verts"])
             node_chunk_body += struct.pack('<I', node["body"]["flags"])
             
             parent_texture = [n for n in parent['children'] if n['type'] == 1][0]
             self.previous_wflz_size += len(parent_texture['body']['wflz']['body']) + 8
-            hash_offset = (self.main_body_node_size + self.hash_chunk_size + (self.previous_wflz_size - 24))
-            node_chunk_body += struct.pack('<Q', hash_offset)
+            data_offset = (self.main_body_node_size + self.hash_chunk_size + (self.previous_wflz_size - 24))
+            node_chunk_body += struct.pack('<Q', data_offset)
             
     
         if _type == 'MetaPoint':
@@ -315,6 +318,8 @@ class ANBPack:
             node_chunk_body += struct.pack('<I', node["body"]["frame_count"])
             node_chunk_body += struct.pack('<I', node["body"]["single_texture"])
             node_chunk_body += struct.pack('<I', node["body"]["palette_index"])
+            
+            #print(node["body"]["palette_index"])
             
             node_chunk_body += struct.pack('<Q', self.main_body_node_size)
             self.hash_chunk += struct.pack('<I', node["body"]["hash_flag"])
