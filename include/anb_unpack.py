@@ -64,10 +64,10 @@ class ANBUnpack:
             self.get_nodes(node_type, _node, nodes)
         return nodes
     
-    def create_image(self, name, width, height, vertices, frame_index):
+    def create_image(self, name, frame_width, frame_height, vertices, frame_index):
 
         _buffer = Path(name).read_bytes()
-        image_out = Image.frombytes('RGBA', (width, height), _buffer, 'raw')
+        image_out = Image.frombytes('RGBA', (frame_width, frame_height), _buffer, 'raw')
 
         min_posX = min(vertex["posX"] for vertex in vertices)
         min_posY = min(vertex["posY"] for vertex in vertices)
@@ -77,7 +77,7 @@ class ANBUnpack:
         canvas_width = int(max_posX - min_posX)
         canvas_height = int(max_posY - min_posY)
 
-        final_image = Image.new("RGBA", (canvas_width, canvas_height))
+        final_image = Image.new("RGBA", (frame_width, frame_height))
         for vertex in vertices:
             
             texX = vertex["texX"]
@@ -88,8 +88,8 @@ class ANBUnpack:
             region = (texX, texY, texX + piece_width, texY + piece_height)
             piece = image_out.crop(region)
 
-            paste_x = int(vertex["posX"] - min_posX)
-            paste_y = int(vertex["posY"] - min_posY)
+            paste_x = int(vertex["texX"])
+            paste_y = int(vertex["texY"])
             
             final_image.paste(piece, (paste_x, paste_y), piece)
 

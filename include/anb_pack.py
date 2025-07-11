@@ -93,8 +93,8 @@ class ANBPack:
                 new_sequence = sequences[str(sequence['body']['hash_name'])]
                 wflz_data = new_sequence[f"frame_{frame_index}"]
                 
-                texture['body']['width'] = image_width
-                texture['body']['height'] = image_height
+                #texture['body']['width'] = image_width
+                #texture['body']['height'] = image_height
                 texture['body']['wflz']['size'] = len(wflz_data)
                 texture['body']['wflz']['body'] = wflz_data + bytes((self.align(len(wflz_data), 8) - len(wflz_data))) + vertex_chunk
                 
@@ -131,19 +131,21 @@ class ANBPack:
         return nodes
     
     def build_vertex_chunk(self, vertex, image_width, image_height, frame_index):
-        # Images with multiple vertices get baked into a single image. Everything now has 1 vert.
+        
         vertex_chunk = b''
-                    
         vertex_chunk += struct.pack('<I', vertex["body"]["hash_flag"])
         vertex_chunk += struct.pack('<I', vertex["body"]["hash_size"])
         
-        vertex_chunk += struct.pack('<f', 0)
-        vertex_chunk += struct.pack('<f', -image_height)
+        for piece in vertex["body"]["pieces"]:
             
-        vertex_chunk += struct.pack('<H', 0)
-        vertex_chunk += struct.pack('<H', 0)
-        vertex_chunk += struct.pack('<H', image_width)
-        vertex_chunk += struct.pack('<H', image_height)
+            vertex_chunk += struct.pack('<f',piece["posX"])
+            vertex_chunk += struct.pack('<f',piece["posY"])
+            
+            vertex_chunk += struct.pack('<H',piece["texX"]) #-1, each iteration removes 1 # 2 Bytes
+            vertex_chunk += struct.pack('<H',piece["texY"]) #-1, each iteration removes 1 # 2 Bytes
+            
+            vertex_chunk += struct.pack('<H',piece["width"])
+            vertex_chunk += struct.pack('<H',piece["height"])
    
         return vertex_chunk
         
@@ -181,7 +183,7 @@ class ANBPack:
             
     def compress_image(self, image_name):
         _image = Image.open(image_name) 
-        padded_image = self.get_padded_image(_image.width, _image.height, _image)
+        padded_image = _image #self.get_padded_image(_image.width, _image.height, _image)
         
         width, height = padded_image.size
         pixels = list(padded_image.getdata())
@@ -246,12 +248,16 @@ class ANBPack:
             node_chunk_body += struct.pack('<Q', data_offset)
 
         if _type == 'Vertex':
-            node_chunk_body += struct.pack('<I', 1)#struct.pack('<I', node["body"]["num_verts"])
+            node_chunk_body += struct.pack('<I', node["body"]["num_verts"])
             node_chunk_body += struct.pack('<I', node["body"]["flags"])
             
             parent_texture = [n for n in parent['children'] if n['type'] == 1][0]
+            parent_vertex = [n for n in parent['children'] if n['type'] == 2][0]
+     
             self.previous_wflz_size += len(parent_texture['body']['wflz']['body']) + 8
-            data_offset = (self.main_body_node_size + self.hash_chunk_size + (self.previous_wflz_size - 24))
+            offset = 8 + (16 * parent_vertex["body"]["num_verts"])
+            data_offset = (self.main_body_node_size + self.hash_chunk_size + (self.previous_wflz_size - offset))
+            
             node_chunk_body += struct.pack('<Q', data_offset)
             
     
